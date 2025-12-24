@@ -213,28 +213,31 @@ async function saveToCloud() {
 
     try {
         sortTripItems();
-        const payload = { 
+        const payload = JSON.stringify({ 
             trip: tripData, 
             tickets: ticketData
-        };
-
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // 關鍵：避免瀏覽器安全性攔截
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
         });
 
-        // 因為 no-cors 模式下無法讀取 response，我們假設發送成功
-        status.innerText = '已儲存至雲端 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        // 使用 text/plain 可以繞過複雜的 CORS 預檢請求 (Preflight)
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'text/plain' },
+            body: payload
+        });
+
+        // 在 no-cors 模式下，我們等候 800 毫秒確保發送完成
+        setTimeout(() => {
+            status.innerText = '已儲存至雲端 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            icon.classList.remove('sync-loading');
+        }, 800);
+
     } catch (e) { 
         console.error("Save Error:", e);
         status.innerText = '儲存失敗'; 
-    } finally {
         icon.classList.remove('sync-loading');
     }
 }
-
 
     function renderUI() {
         const linkContainer = document.getElementById('dayLinks');
