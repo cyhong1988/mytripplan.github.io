@@ -15,10 +15,28 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .sync-loading { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .edit-input { border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 0.9rem; outline-color: #f43f5e; background: white; width: 100%; }
+        
+        /* 統一輸入框樣式與對齊 */
+        .edit-input { 
+            border: 1px solid #e2e8f0; 
+            border-radius: 10px; 
+            padding: 10px 12px; 
+            font-size: 0.95rem; 
+            outline: none;
+            background: white; 
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        .edit-input:focus { border-color: #f43f5e; border-width: 1px; }
+        
+        /* 專門限制時間欄位的寬度 */
+        .time-input-wrapper { width: 140px; }
+
         .pin-active { color: #f43f5e !important; transform: rotate(-45deg); transition: all 0.2s; }
         .pin-inactive { color: #e2e8f0; }
         .map-icon-btn { color: #3b82f6; background: #eff6ff; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+        
+        .label-text { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; items-center: center; gap: 4px; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -96,7 +114,6 @@
             const linkContainer = document.getElementById('dayLinks');
             const contentArea = document.getElementById('contentArea');
             
-            // 保持當前位置
             contentArea.innerHTML = `
                 <div id="overview" class="day-card ${currentActiveTab === 'overview' ? 'active' : ''}">
                     <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 text-white mb-8 shadow-xl relative overflow-hidden">
@@ -141,17 +158,24 @@
                                     <button onclick="startEdit(${dIdx}, ${iIdx})" class="p-2 text-slate-200"><i class="fas fa-ellipsis-v text-xs"></i></button>
                                 </div>
                             </div>
-                            <div id="edit-${dIdx}-${iIdx}" class="hidden space-y-3 bg-slate-50 p-4 rounded-2xl mt-2 border-2 border-slate-100">
-                                <div class="grid grid-cols-4 gap-2">
-                                    <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input col-span-1 font-mono" value="${item.time}">
-                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input col-span-3" value="${item.text}">
+                            <div id="edit-${dIdx}-${iIdx}" class="hidden space-y-4 bg-slate-50 p-5 rounded-2xl mt-2 border border-slate-200">
+                                <div class="time-input-wrapper">
+                                    <label class="label-text"><i class="far fa-clock"></i> 時間</label>
+                                    <input type="time" id="in-time-${dIdx}-${iIdx}" class="edit-input font-mono" value="${item.time}">
                                 </div>
-                                <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="貼上 Google Maps 網址">
-                                <div class="flex justify-between items-center">
-                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-400 text-xs font-bold">刪除項目</button>
-                                    <div class="flex gap-2">
-                                        <button onclick="renderUI()" class="text-slate-400 text-xs px-3">取消</button>
-                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg font-bold">儲存更新</button>
+                                <div>
+                                    <label class="label-text"><i class="fas fa-pen"></i> 行程細項</label>
+                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input" value="${item.text}" placeholder="要做什麼呢？">
+                                </div>
+                                <div>
+                                    <label class="label-text"><i class="fas fa-map-marker-alt"></i> 地點連結 (選填)</label>
+                                    <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="貼上 Google Maps 網址">
+                                </div>
+                                <div class="flex justify-between items-center pt-2">
+                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-400 text-xs font-bold hover:text-red-600 transition">刪除項目</button>
+                                    <div class="flex gap-3">
+                                        <button onclick="renderUI()" class="text-slate-400 text-xs font-bold px-2 py-2">取消</button>
+                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-6 py-2 rounded-xl font-bold">儲存更新</button>
                                     </div>
                                 </div>
                             </div>
@@ -163,13 +187,14 @@
                         <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
                     </div>
                     <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">${itemsHtml}</div>
-                    <button onclick="addItem(${dIdx})" class="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 transition">+ 新增行程細項</button>`;
+                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 hover:bg-white transition-all">+ 新增行程細項</button>`;
                 contentArea.appendChild(card);
             });
             updatePinnedList();
             updateHeaderTitle();
         }
 
+        // 其餘邏輯保持不變...
         function updatePinnedList() {
             const container = document.getElementById('pinnedItemsContainer');
             if(!container) return;
@@ -237,7 +262,7 @@
         }
 
         function addItem(dIdx) {
-            tripData[dIdx].items.push({time: "00:00", text: "新項目", pinned: false, map: ""});
+            tripData[dIdx].items.push({time: "09:00", text: "", pinned: false, map: ""});
             renderUI();
             saveToCloud();
             startEdit(dIdx, tripData[dIdx].items.length - 1);
@@ -247,18 +272,17 @@
             currentActiveTab = id;
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            
-            // 更新選單視覺樣式
             renderUI();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function updateHeaderTitle() {
+            const titleEl = document.getElementById('currentDayTitle');
             if (currentActiveTab === 'overview') {
-                document.getElementById('currentDayTitle').innerText = "行程總覽";
+                titleEl.innerText = "行程總覽";
             } else {
                 const idx = currentActiveTab.split('-')[1];
-                document.getElementById('currentDayTitle').innerText = tripData[idx].date + " 行程規劃";
+                titleEl.innerText = tripData[idx].date + " 行程規劃";
             }
         }
 
