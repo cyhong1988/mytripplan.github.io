@@ -173,41 +173,11 @@
         });
     }
 
-    async function syncData() {
-        const icon = document.getElementById('syncIcon');
-        const status = document.getElementById('saveStatus');
-        icon.classList.add('sync-loading');
-        status.innerText = '同步中...';
-
-        try {
-            const response = await fetch(SCRIPT_URL);
-            const cloudData = await response.json();
-            
-            if (cloudData) {
-                if (Array.isArray(cloudData)) {
-                    tripData = cloudData;
-                    ticketData = [];
-                } else {
-                    tripData = cloudData.trip || [];
-                    ticketData = cloudData.tickets || [];
-                }
-                sortTripItems();
-                renderUI();
-                status.innerText = '同步成功 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            }
-        } catch (e) {
-            console.error("Sync Error:", e);
-            status.innerText = '同步失敗';
-            if (tripData.length === 0) { tripData = []; renderUI(); }
-        } finally {
-            icon.classList.remove('sync-loading');
-        }
-    }
+   
 
 async function saveToCloud() {
     const status = document.getElementById('saveStatus');
     const icon = document.getElementById('syncIcon');
-    
     status.innerText = '儲存中...';
     icon.classList.add('sync-loading');
 
@@ -215,11 +185,10 @@ async function saveToCloud() {
         sortTripItems();
         const payload = JSON.stringify({ 
             trip: tripData, 
-            tickets: ticketData,
-            timestamp: new Date().getTime()
+            tickets: ticketData
         });
 
-        // 使用 text/plain 搭配 no-cors 模式，這幾乎不會被瀏覽器攔截
+        // 使用 text/plain 與 no-cors 模式，這能繞過嚴格的 CORS 檢查
         await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors', 
@@ -227,15 +196,41 @@ async function saveToCloud() {
             body: payload
         });
 
-        // 由於 no-cors 模式無法獲得回傳結果，我們透過延遲模擬成功
+        // no-cors 模式下無法讀取回應，我們手動顯示成功並延遲轉回就緒
         setTimeout(() => {
-            status.innerText = '已儲存至雲端 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            status.innerText = '已儲存至雲端 ' + new Date().toLocaleTimeString();
             icon.classList.remove('sync-loading');
-        }, 1000);
+        }, 1200);
 
     } catch (e) { 
         console.error("Save Error:", e);
-        status.innerText = '儲存失敗'; 
+        status.innerText = '同步失敗'; 
+        icon.classList.remove('sync-loading');
+    }
+}
+
+async function syncData() {
+    const icon = document.getElementById('syncIcon');
+    const status = document.getElementById('saveStatus');
+    icon.classList.add('sync-loading');
+    status.innerText = '讀取中...';
+
+    try {
+        // GET 請求通常不會有 CORS 問題
+        const response = await fetch(SCRIPT_URL);
+        const cloudData = await response.json();
+        
+        if (cloudData) {
+            tripData = cloudData.trip || [];
+            ticketData = cloudData.tickets || [];
+            sortTripItems();
+            renderUI();
+            status.innerText = '同步成功 ' + new Date().toLocaleTimeString();
+        }
+    } catch (e) {
+        console.error("Sync Error:", e);
+        status.innerText = '同步失敗';
+    } finally {
         icon.classList.remove('sync-loading');
     }
 }
