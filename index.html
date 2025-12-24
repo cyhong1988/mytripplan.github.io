@@ -89,233 +89,296 @@
         <img id="modalImg" src="" class="max-w-full max-h-full object-contain">
     </div>
 
-    <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZqxgSO4KI6fpqrdw_wERmXUqMMkWmQBWsIaxCdaqEe510HtwyoOW1qMFZCFFd7GgnhA/exec"; 
+<script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZqxgSO4KI6fpqrdw_wERmXUqMMkWmQBWsIaxCdaqEe510HtwyoOW1qMFZCFFd7GgnhA/exec"; 
 
-        let tripData = [];
-        let ticketData = [];
-        let currentActiveTab = 'overview';
+    let tripData = [];
+    let ticketData = [];
+    let currentActiveTab = 'overview';
 
-        function sortTripItems() {
-            if (!Array.isArray(tripData)) return;
-            tripData.forEach(day => {
-                if (day.items) day.items.sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
-            });
-        }
-
-        async function syncData() {
-            const icon = document.getElementById('syncIcon');
-            const status = document.getElementById('saveStatus');
-            icon.classList.add('sync-loading');
-            status.innerText = '同步中...';
-
-            try {
-                const response = await fetch(SCRIPT_URL);
-                const cloudData = await response.json();
-                
-                if (cloudData) {
-                    // 支援兩種資料結構：舊版的陣列或新版的物件
-                    if (Array.isArray(cloudData)) {
-                        tripData = cloudData;
-                        ticketData = [];
-                    } else {
-                        tripData = cloudData.trip || [];
-                        ticketData = cloudData.tickets || [];
-                    }
-                    sortTripItems();
-                    renderUI();
-                    status.innerText = '同步成功 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                }
-            } catch (e) {
-                console.error("Sync Error:", e);
-                status.innerText = '同步失敗，請檢查網路';
-                // 失敗時若原本沒資料，給予空陣列避免轉圈圈
-                if (tripData.length === 0) { tripData = []; renderUI(); }
-            } finally {
-                icon.classList.remove('sync-loading');
-            }
-        }
-
-        async function saveToCloud() {
-            const status = document.getElementById('saveStatus');
-            status.innerText = '儲存中...';
-            try {
-                sortTripItems();
-                const payload = { trip: tripData, tickets: ticketData };
-                await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
-                status.innerText = '已儲存至雲端';
-            } catch (e) { status.innerText = '存檔失敗'; }
-        }
-
-        function renderUI() {
-            const linkContainer = document.getElementById('dayLinks');
-            linkContainer.innerHTML = '';
-            
-            tripData.forEach((day, dIdx) => {
-                const link = document.createElement('button');
-                link.onclick = () => showDay(`day-${dIdx}`);
-                link.className = `w-full p-4 hover:bg-slate-800 transition flex flex-col items-center border-l-4 ${currentActiveTab === 'day-'+dIdx ? 'border-rose-500 bg-slate-800' : 'border-transparent'}`;
-                link.innerHTML = `<span class="text-[10px] opacity-40 font-mono">${day.date}</span><span class="text-xs font-bold text-white">D${dIdx+1}</span>`;
-                linkContainer.appendChild(link);
-            });
-
-            renderTripContent();
-            renderTicketContent();
-            updatePinnedList();
-            updateHeaderTitle();
-        }
-
-        function renderTripContent() {
-            document.querySelectorAll('.day-card[id^="day-"]').forEach(el => el.remove());
-            const contentArea = document.getElementById('contentArea');
-
-            tripData.forEach((day, dIdx) => {
-                const card = document.createElement('div');
-                card.id = `day-${dIdx}`;
-                card.className = `day-card space-y-4 ${currentActiveTab === 'day-'+dIdx ? 'active' : ''}`;
-                
-                let itemsHtml = `<div class="space-y-1">`;
-                day.items.forEach((item, iIdx) => {
-                    itemsHtml += `
-                        <div class="flex flex-col p-4 bg-white hover:bg-slate-50 transition border-b">
-                            <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between gap-4">
-                                <div class="flex gap-4 items-center overflow-hidden">
-                                    <span class="font-mono font-black text-slate-300 w-10 text-xs shrink-0">${item.time}</span>
-                                    <span class="text-sm font-medium text-slate-700 truncate">${item.text}</span>
-                                    ${item.map ? `<a href="${item.map}" target="_blank" class="map-icon-btn"><i class="fas fa-location-arrow"></i></a>` : ''}
-                                </div>
-                                <div class="flex items-center gap-1 shrink-0">
-                                    <button onclick="togglePin(${dIdx}, ${iIdx})" class="p-2 ${item.pinned ? 'pin-active' : 'pin-inactive'}"><i class="fas fa-thumbtack"></i></button>
-                                    <button onclick="startEdit(${dIdx}, ${iIdx})" class="p-2 text-slate-200"><i class="fas fa-ellipsis-v text-xs"></i></button>
-                                </div>
-                            </div>
-                            <div id="edit-${dIdx}-${iIdx}" class="hidden space-y-4 bg-slate-50 p-5 rounded-2xl mt-2 border border-slate-200">
-                                <div class="time-input-wrapper">
-                                    <label class="label-text">時間</label>
-                                    <input type="time" id="in-time-${dIdx}-${iIdx}" class="edit-input font-mono" value="${item.time}">
-                                </div>
-                                <div>
-                                    <label class="label-text">行程細項</label>
-                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input" value="${item.text}">
-                                </div>
-                                <div>
-                                    <label class="label-text">地點連結</label>
-                                    <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="Google Maps 網址">
-                                </div>
-                                <div class="flex justify-between items-center pt-2">
-                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-400 text-xs font-bold px-2 py-1">刪除</button>
-                                    <div class="flex gap-3">
-                                        <button onclick="renderUI()" class="text-slate-400 text-xs font-bold">取消</button>
-                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-6 py-2 rounded-xl font-bold">儲存</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`;
-                });
-                card.innerHTML = `
-                    <div class="px-1 mb-6">
-                        <span class="text-rose-500 font-mono text-xs font-bold uppercase tracking-widest">${day.date}</span>
-                        <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
-                    </div>
-                    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">${itemsHtml}</div>
-                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 transition-all">+ 新增項目</button>`;
-                contentArea.appendChild(card);
-            });
-        }
-
-        function renderTicketContent() {
-            const grid = document.getElementById('ticketGrid');
-            if(!grid) return;
-            grid.innerHTML = '';
-            ticketData.forEach((t, idx) => {
-                const div = document.createElement('div');
-                div.className = "bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3";
-                div.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <input type="text" onchange="updateTicketName(${idx}, this.value)" class="font-bold text-slate-700 bg-transparent border-none focus:ring-0 p-0 text-sm w-full mr-2" value="${t.name}">
-                        <button onclick="deleteTicket(${idx})" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash-alt text-xs"></i></button>
-                    </div>
-                    <img src="${t.img || 'https://placehold.co/400x400?text=No+QR+Code'}" class="ticket-img" onclick="zoomTicket('${t.img}')">
-                    <label class="block w-full text-center py-2 bg-slate-50 rounded-lg text-xs font-bold text-slate-500 cursor-pointer hover:bg-blue-50 hover:text-blue-500 transition">
-                        更換截圖 <input type="file" class="hidden" accept="image/*" onchange="uploadTicketImg(${idx}, this)">
-                    </label>
-                `;
-                grid.appendChild(div);
-            });
-            if (ticketData.length === 0) {
-                grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-300 border-2 border-dashed rounded-3xl text-sm font-medium">尚無票券</div>`;
-            }
-        }
-
-        // 票券邏輯
-        function addTicket() { ticketData.push({ name: "新票券", img: "" }); renderTicketContent(); saveToCloud(); }
-        function updateTicketName(idx, val) { ticketData[idx].name = val; saveToCloud(); }
-        function deleteTicket(idx) { if(confirm('刪除票券？')) { ticketData.splice(idx, 1); renderTicketContent(); saveToCloud(); } }
-        function uploadTicketImg(idx, input) {
-            const file = input.files[0];
-            if (!file) return;
+    // 核心功能：圖片壓縮
+    async function compressImage(file) {
+        return new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onload = (e) => { ticketData[idx].img = e.target.result; renderTicketContent(); saveToCloud(); };
             reader.readAsDataURL(file);
-        }
-        function zoomTicket(src) { if(!src) return; document.getElementById('modalImg').src = src; document.getElementById('imgModal').classList.add('active'); }
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // 設定最大寬度為 800px (足以辨識 QR Code)
+                    const maxWidth = 800;
+                    if (width > maxWidth) {
+                        height = (maxWidth / width) * height;
+                        width = maxWidth;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // 輸出壓縮後的 Base64
+                    resolve(canvas.toDataURL('image/jpeg', 0.7)); // 品質設為 0.7
+                };
+            };
+        });
+    }
 
-        // 行程邏輯
-        function updatePinnedList() {
-            const container = document.getElementById('pinnedItemsContainer');
-            if(!container) return;
-            container.innerHTML = '';
-            let hasPinned = false;
-            tripData.forEach((day, dIdx) => {
-                const pinned = day.items.filter(i => i.pinned);
-                if (pinned.length > 0) {
-                    hasPinned = true;
-                    const box = document.createElement('div');
-                    box.className = "bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4";
-                    box.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-400 border-b flex justify-between"><span>${day.date}</span><span>${day.title}</span></div>`;
-                    pinned.forEach(item => {
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = "flex items-center justify-between p-4 border-b last:border-0";
-                        itemDiv.innerHTML = `<div class="flex items-center gap-4"><span class="font-mono text-xs text-rose-400 font-bold">${item.time}</span><span class="text-sm font-bold text-slate-700">${item.text}</span></div><button onclick="showDay('day-${dIdx}')" class="p-2 text-slate-300"><i class="fas fa-chevron-right"></i></button>`;
-                        box.appendChild(itemDiv);
-                    });
-                    container.appendChild(box);
-                }
-            });
-            if(!hasPinned) container.innerHTML = `<div class="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 text-sm font-medium">尚未釘選重要項目</div>`;
-        }
-
-        function togglePin(dIdx, iIdx) { tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned; renderUI(); saveToCloud(); }
-        function startEdit(dIdx, iIdx) { document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden'); document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden'); }
-        function saveEdit(dIdx, iIdx) {
-            tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
-            tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
-            tripData[dIdx].items[iIdx].map = document.getElementById(`in-map-${dIdx}-${iIdx}`).value;
-            sortTripItems(); renderUI(); saveToCloud();
-        }
-        function deleteItem(dIdx, iIdx) { if(confirm('刪除行程？')) { tripData[dIdx].items.splice(iIdx, 1); renderUI(); saveToCloud(); } }
-        function addItem(dIdx) { tripData[dIdx].items.push({time: "09:00", text: "", pinned: false, map: ""}); sortTripItems(); renderUI(); saveToCloud(); }
-
-        function showDay(id) {
-            currentActiveTab = id;
-            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
-            const target = document.getElementById(id);
-            if(target) target.classList.add('active');
-            renderUI();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function updateHeaderTitle() {
-            const titleEl = document.getElementById('currentDayTitle');
-            if (currentActiveTab === 'overview') titleEl.innerText = "行程總覽";
-            else if (currentActiveTab === 'tickets') titleEl.innerText = "票券夾";
-            else {
-                const idx = currentActiveTab.split('-')[1];
-                if(tripData[idx]) titleEl.innerText = tripData[idx].date + " " + tripData[idx].title;
+    // 修改新增票券：直接選取檔案
+    async function addTicket() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const status = document.getElementById('saveStatus');
+            status.innerText = '處理圖片中...';
+            
+            const compressedBase64 = await compressImage(file);
+            const name = prompt("請輸入票券名稱 (例如: 巴黎鐵塔門票)", "新票券");
+            
+            if (name !== null) {
+                ticketData.push({ name: name || "未命名票券", img: compressedBase64 });
+                renderTicketContent();
+                saveToCloud();
             }
-        }
+        };
+        fileInput.click();
+    }
 
-        syncData();
-    </script>
+    // 點擊更換照片也加入壓縮邏輯
+    async function uploadTicketImg(idx, input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        const status = document.getElementById('saveStatus');
+        status.innerText = '壓縮中...';
+        
+        const compressedBase64 = await compressImage(file);
+        ticketData[idx].img = compressedBase64;
+        renderTicketContent();
+        saveToCloud();
+    }
+
+    function sortTripItems() {
+        if (!Array.isArray(tripData)) return;
+        tripData.forEach(day => {
+            if (day.items) day.items.sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+        });
+    }
+
+    async function syncData() {
+        const icon = document.getElementById('syncIcon');
+        const status = document.getElementById('saveStatus');
+        icon.classList.add('sync-loading');
+        status.innerText = '同步中...';
+
+        try {
+            const response = await fetch(SCRIPT_URL);
+            const cloudData = await response.json();
+            
+            if (cloudData) {
+                if (Array.isArray(cloudData)) {
+                    tripData = cloudData;
+                    ticketData = [];
+                } else {
+                    tripData = cloudData.trip || [];
+                    ticketData = cloudData.tickets || [];
+                }
+                sortTripItems();
+                renderUI();
+                status.innerText = '同步成功 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            }
+        } catch (e) {
+            console.error("Sync Error:", e);
+            status.innerText = '同步失敗';
+            if (tripData.length === 0) { tripData = []; renderUI(); }
+        } finally {
+            icon.classList.remove('sync-loading');
+        }
+    }
+
+    async function saveToCloud() {
+        const status = document.getElementById('saveStatus');
+        status.innerText = '儲存中...';
+        try {
+            sortTripItems();
+            const payload = { trip: tripData, tickets: ticketData };
+            await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
+            status.innerText = '已儲存至雲端';
+        } catch (e) { 
+            status.innerText = '存檔失敗(可能檔案過大)'; 
+            console.error(e);
+        }
+    }
+
+    function renderUI() {
+        const linkContainer = document.getElementById('dayLinks');
+        linkContainer.innerHTML = '';
+        
+        tripData.forEach((day, dIdx) => {
+            const link = document.createElement('button');
+            link.onclick = () => showDay(`day-${dIdx}`);
+            link.className = `w-full p-4 hover:bg-slate-800 transition flex flex-col items-center border-l-4 ${currentActiveTab === 'day-'+dIdx ? 'border-rose-500 bg-slate-800' : 'border-transparent'}`;
+            link.innerHTML = `<span class="text-[10px] opacity-40 font-mono">${day.date}</span><span class="text-xs font-bold text-white">D${dIdx+1}</span>`;
+            linkContainer.appendChild(link);
+        });
+
+        renderTripContent();
+        renderTicketContent();
+        updatePinnedList();
+        updateHeaderTitle();
+    }
+
+    function renderTripContent() {
+        document.querySelectorAll('.day-card[id^="day-"]').forEach(el => el.remove());
+        const contentArea = document.getElementById('contentArea');
+
+        tripData.forEach((day, dIdx) => {
+            const card = document.createElement('div');
+            card.id = `day-${dIdx}`;
+            card.className = `day-card space-y-4 ${currentActiveTab === 'day-'+dIdx ? 'active' : ''}`;
+            
+            let itemsHtml = `<div class="space-y-1">`;
+            day.items.forEach((item, iIdx) => {
+                itemsHtml += `
+                    <div class="flex flex-col p-4 bg-white hover:bg-slate-50 transition border-b">
+                        <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between gap-4">
+                            <div class="flex gap-4 items-center overflow-hidden">
+                                <span class="font-mono font-black text-slate-300 w-10 text-xs shrink-0">${item.time}</span>
+                                <span class="text-sm font-medium text-slate-700 truncate">${item.text}</span>
+                                ${item.map ? `<a href="${item.map}" target="_blank" class="map-icon-btn"><i class="fas fa-location-arrow"></i></a>` : ''}
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button onclick="togglePin(${dIdx}, ${iIdx})" class="p-2 ${item.pinned ? 'pin-active' : 'pin-inactive'}"><i class="fas fa-thumbtack"></i></button>
+                                <button onclick="startEdit(${dIdx}, ${iIdx})" class="p-2 text-slate-200"><i class="fas fa-ellipsis-v text-xs"></i></button>
+                            </div>
+                        </div>
+                        <div id="edit-${dIdx}-${iIdx}" class="hidden space-y-4 bg-slate-50 p-5 rounded-2xl mt-2 border border-slate-200">
+                            <div class="time-input-wrapper">
+                                <label class="label-text">時間</label>
+                                <input type="time" id="in-time-${dIdx}-${iIdx}" class="edit-input font-mono" value="${item.time}">
+                            </div>
+                            <div>
+                                <label class="label-text">行程細項</label>
+                                <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input" value="${item.text}">
+                            </div>
+                            <div>
+                                <label class="label-text">地點連結</label>
+                                <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="Google Maps 網址">
+                            </div>
+                            <div class="flex justify-between items-center pt-2">
+                                <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-400 text-xs font-bold px-2 py-1">刪除</button>
+                                <div class="flex gap-3">
+                                    <button onclick="renderUI()" class="text-slate-400 text-xs font-bold">取消</button>
+                                    <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-6 py-2 rounded-xl font-bold">儲存</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            card.innerHTML = `
+                <div class="px-1 mb-6">
+                    <span class="text-rose-500 font-mono text-xs font-bold uppercase tracking-widest">${day.date}</span>
+                    <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">${itemsHtml}</div>
+                <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 transition-all">+ 新增項目</button>`;
+            contentArea.appendChild(card);
+        });
+    }
+
+    function renderTicketContent() {
+        const grid = document.getElementById('ticketGrid');
+        if(!grid) return;
+        grid.innerHTML = '';
+        ticketData.forEach((t, idx) => {
+            const div = document.createElement('div');
+            div.className = "bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3";
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <input type="text" onchange="updateTicketName(${idx}, this.value)" class="font-bold text-slate-700 bg-transparent border-none focus:ring-0 p-0 text-sm w-full mr-2" value="${t.name}">
+                    <button onclick="deleteTicket(${idx})" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash-alt text-xs"></i></button>
+                </div>
+                <img src="${t.img || 'https://placehold.co/400x400?text=No+QR+Code'}" class="ticket-img cursor-pointer" onclick="zoomTicket('${t.img}')">
+                <label class="block w-full text-center py-2 bg-slate-50 rounded-lg text-xs font-bold text-slate-500 cursor-pointer hover:bg-blue-50 hover:text-blue-500 transition">
+                    更換截圖 <input type="file" class="hidden" accept="image/*" onchange="uploadTicketImg(${idx}, this)">
+                </label>
+            `;
+            grid.appendChild(div);
+        });
+        if (ticketData.length === 0) {
+            grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-300 border-2 border-dashed rounded-3xl text-sm font-medium">尚無票券，請點擊上方「新增」選取 QR Code</div>`;
+        }
+    }
+
+    function updateTicketName(idx, val) { ticketData[idx].name = val; saveToCloud(); }
+    function deleteTicket(idx) { if(confirm('刪除票券？')) { ticketData.splice(idx, 1); renderTicketContent(); saveToCloud(); } }
+    function zoomTicket(src) { if(!src) return; document.getElementById('modalImg').src = src; document.getElementById('imgModal').classList.add('active'); }
+
+    // 行程相關
+    function updatePinnedList() {
+        const container = document.getElementById('pinnedItemsContainer');
+        if(!container) return;
+        container.innerHTML = '';
+        let hasPinned = false;
+        tripData.forEach((day, dIdx) => {
+            const pinned = day.items.filter(i => i.pinned);
+            if (pinned.length > 0) {
+                hasPinned = true;
+                const box = document.createElement('div');
+                box.className = "bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4";
+                box.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-400 border-b flex justify-between"><span>${day.date}</span><span>${day.title}</span></div>`;
+                pinned.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = "flex items-center justify-between p-4 border-b last:border-0";
+                    itemDiv.innerHTML = `<div class="flex items-center gap-4"><span class="font-mono text-xs text-rose-400 font-bold">${item.time}</span><span class="text-sm font-bold text-slate-700">${item.text}</span></div><button onclick="showDay('day-${dIdx}')" class="p-2 text-slate-300"><i class="fas fa-chevron-right"></i></button>`;
+                    box.appendChild(itemDiv);
+                });
+                container.appendChild(box);
+            }
+        });
+        if(!hasPinned) container.innerHTML = `<div class="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 text-sm font-medium">尚未釘選重要項目</div>`;
+    }
+
+    function togglePin(dIdx, iIdx) { tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned; renderUI(); saveToCloud(); }
+    function startEdit(dIdx, iIdx) { document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden'); document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden'); }
+    function saveEdit(dIdx, iIdx) {
+        tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
+        tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
+        tripData[dIdx].items[iIdx].map = document.getElementById(`in-map-${dIdx}-${iIdx}`).value;
+        sortTripItems(); renderUI(); saveToCloud();
+    }
+    function deleteItem(dIdx, iIdx) { if(confirm('刪除行程？')) { tripData[dIdx].items.splice(iIdx, 1); renderUI(); saveToCloud(); } }
+    function addItem(dIdx) { tripData[dIdx].items.push({time: "09:00", text: "", pinned: false, map: ""}); sortTripItems(); renderUI(); saveToCloud(); }
+
+    function showDay(id) {
+        currentActiveTab = id;
+        document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+        const target = document.getElementById(id);
+        if(target) target.classList.add('active');
+        renderUI();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateHeaderTitle() {
+        const titleEl = document.getElementById('currentDayTitle');
+        if (currentActiveTab === 'overview') titleEl.innerText = "行程總覽";
+        else if (currentActiveTab === 'tickets') titleEl.innerText = "票券夾";
+        else {
+            const idx = currentActiveTab.split('-')[1];
+            if(tripData[idx]) titleEl.innerText = tripData[idx].date + " " + tripData[idx].title;
+        }
+    }
+
+    syncData();
+</script>
+
 </body>
 </html>
