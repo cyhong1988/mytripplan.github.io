@@ -13,8 +13,8 @@
         .day-card { display: none; }
         .day-card.active { display: block; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .booked-tag { background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
-        .edit-input { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 6px; font-size: 0.95rem; outline-color: #f43f5e; }
+        .booked-tag { background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
+        .edit-input { border: 1px solid #ddd; border-radius: 4px; padding: 6px; font-size: 0.9rem; outline-color: #f43f5e; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -23,51 +23,33 @@
         <aside class="sidebar w-20 md:w-64 bg-slate-900 text-white flex flex-col">
             <div class="p-4 text-center border-b border-slate-700">
                 <i class="fas fa-wine-glass-alt text-2xl text-red-400"></i>
-                <span class="hidden md:inline block mt-2 font-bold tracking-widest text-sm">FRANCE 2025</span>
+                <span class="hidden md:inline block mt-2 font-bold tracking-widest text-sm uppercase">France 2025</span>
             </div>
-            <nav class="flex-1 overflow-y-auto py-4 custom-scrollbar">
+            <nav class="flex-1 overflow-y-auto py-4">
                 <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition">
                     <i class="fas fa-home w-8"></i><span class="hidden md:inline">總覽</span>
                 </button>
                 <div id="dayLinks"></div>
             </nav>
-            <button onclick="resetToOriginal()" class="p-4 text-[10px] text-slate-500 hover:text-white uppercase border-t border-slate-800">重置所有行程</button>
+            <button onclick="resetToOriginal()" class="p-4 text-[10px] text-slate-500 hover:text-white uppercase border-t border-slate-800 text-center">重置資料</button>
         </aside>
 
         <main class="flex-1 overflow-y-auto relative bg-white">
             <header class="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-6 py-4 border-b flex justify-between items-center">
-                <h2 id="currentDayTitle" class="text-xl font-bold text-slate-800">行程總覽</h2>
+                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">載入中...</h2>
                 <button onclick="openImportPopup()" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200">
                     <i class="fas fa-file-import text-slate-600"></i>
                 </button>
             </header>
 
-            <div id="contentArea" class="p-6 max-w-4xl mx-auto">
+            <div id="contentArea" class="p-4 md:p-8 max-w-4xl mx-auto">
                 <div id="overview" class="day-card active">
                     <div class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-6 text-white mb-8 shadow-lg">
                         <h1 class="text-2xl font-bold mb-2">跟阿猷二訪法國之酒莊之旅</h1>
-                        <p class="opacity-90">2025.12.25 ~ 2026.1.5 (共 12 天)</p>
+                        <p class="opacity-90">2025.12.25 ~ 2026.1.5</p>
                     </div>
-                    
-                    <h3 class="font-bold text-lg mb-4 text-slate-700"><i class="fas fa-key mr-2"></i>重要預訂備忘錄</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="p-4 border rounded-xl bg-green-50">
-                            <p class="text-sm text-green-700 font-bold">交通相關</p>
-                            <ul class="text-sm mt-2 space-y-1 text-slate-600">
-                                <li>✅ 12/26 德鐵 ICE (09:51)</li>
-                                <li>✅ 12/26 史特拉斯堡租車 (19:00)</li>
-                                <li>✅ 12/28 TGV 往巴黎 (12:50)</li>
-                            </ul>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="memoSection">
                         </div>
-                        <div class="p-4 border rounded-xl bg-blue-50">
-                            <p class="text-sm text-blue-700 font-bold">重點活動</p>
-                            <ul class="text-sm mt-2 space-y-1 text-slate-600">
-                                <li>✅ 12/29 羅浮宮 (14:15)</li>
-                                <li>✅ 12/29 瘋馬秀 (20:30)</li>
-                                <li>✅ 12/30 巴黎歌劇院</li>
-                            </ul>
-                        </div>
-                    </div>
                 </div>
             </div>
         </main>
@@ -75,35 +57,34 @@
 
     <div id="importPopup" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-            <h3 class="text-xl font-bold mb-4">智能導入行程</h3>
-            <textarea id="importText" class="w-full h-40 p-4 border rounded-xl text-sm mb-4" placeholder="在此貼上新的行程文字..."></textarea>
+            <h3 class="text-xl font-bold mb-4 text-slate-800">智能導入</h3>
+            <textarea id="importText" class="w-full h-40 p-4 border rounded-xl text-sm mb-4" placeholder="貼上新的行程內容..."></textarea>
             <div class="flex justify-end gap-2">
                 <button onclick="closeImportPopup()" class="px-4 py-2 text-slate-500">取消</button>
-                <button onclick="processImport()" class="px-6 py-2 bg-slate-900 text-white rounded-lg">更新系統</button>
+                <button onclick="alert('請手動使用編輯按鈕修改行程！')" class="px-6 py-2 bg-slate-900 text-white rounded-lg">更新</button>
             </div>
         </div>
     </div>
 
     <script>
+        // 初始結構化資料
         const originalTripData = [
-            { date: "12/25", title: "啟程：向桃園機場出發", items: ["要訂高鐵票", "20:30 到桃園機場第一航廈", "23:10 桃園機場第一航廈起飛"] },
-            { date: "12/26", title: "抵達 & 史特拉斯堡聖誕市集", items: ["07:30 抵達法蘭克福機場第二航廈", "09:51 搭火車(德鐵ICE) [已預訂]", "12:15 到史特拉斯堡 (行李寄放已預訂)", "午餐: La Fignette (無法預訂)", "19:00 租車 [已預訂] Alamo Location de voiture", "住：城堡-Château de Werde (已通知晚到)"] },
-            { date: "12/27", title: "酒莊巡禮 & 科馬小鎮", items: ["09:30 前往Eguisheim (45分鐘)", "14:00 Sylvie Fahrer & Son [已預約] 買Riesling酒", "15:00 前往科馬Check in", "逛科馬聖誕市集 (買Vin Chaud)", "住: 科馬"] },
-            { date: "12/28", title: "再會阿爾薩斯，前進巴黎", items: ["10:00 開往史特拉斯堡還車", "12:50 搭TGV去巴黎 [已預訂]", "15:50 到飯店 (馨樂庭飯店 - 鐵塔景觀)", "住: 馨樂庭飯店"] },
-            { date: "12/29", title: "羅浮宮 & 瘋馬秀感官盛宴", items: ["14:15 羅浮宮參觀 [已買票]", "20:30 瘋馬秀開演 [已買票]", "住: 凱旋門旁-10 Rue Saint-Didier"] },
-            { date: "12/30", title: "巴黎文化與美食", items: ["10:00 聖母院登頂 (2天前預訂)", "14:30 巴黎歌劇院 [已買票]", "20:00 晚餐: LOCO (訂位Alex Hong)", "住: 凱旋門旁-10 Rue Saint-Didier"] },
-            { date: "12/31", title: "凡爾賽宮 & 鐵塔跨年夜", items: ["09:15 凡爾賽宮入場", "13:15 午餐: Au Bon Accueil (訂位LiLing Chen)", "20:00 晚餐: Pedra Alta (龍蝦淡菜)", "住: 凱旋門旁-10 Rue Saint-Didier"] },
-            { date: "1/1", title: "前往比利時布魯日", items: ["10:51 巴黎北站前往布魯日 [已預訂]", "16:20 玫瑰碼頭夕陽", "住: 布魯日-Experience Bruges"] },
-            { date: "1/2", title: "漫步布魯日，宿根特", items: ["16:58 搭火車前往根特", "20:30 晚餐 Mémé Gusta", "住: 根特-B&B Hotel Gent Centrum"] },
-            { date: "1/3", title: "根特古城 & 啟程返航", items: ["12:50 伯爵城堡", "18:34 布魯塞爾北站發車 [已預訂]", "住: 機場-Best Western Hotel Airport"] },
-            { date: "1/4", title: "返台", items: ["10:35 法蘭克福機場起飛"] }
+            { date: "12/25", title: "啟程：向桃園機場出發", items: [ {time: "20:30", text: "到桃園機場第一航廈"}, {time: "23:10", text: "桃園機場第一航廈起飛"} ] },
+            { date: "12/26", title: "抵達 & 史特拉斯堡", items: [ {time: "07:30", text: "抵達法蘭克福機場"}, {time: "09:51", text: "搭火車(德鐵ICE) [已預訂]"}, {time: "12:15", text: "到史特拉斯堡 (行李寄放已預訂)"}, {time: "19:00", text: "租車 [已預訂] Alamo"} ] },
+            { date: "12/27", title: "酒莊巡禮 & 科馬", items: [ {time: "10:15", text: "抵達Eguisheim小鎮拍照"}, {time: "14:00", text: "Sylvie Fahrer & Son [已預約] 買酒"}, {time: "15:00", text: "前往科馬Check in"} ] },
+            { date: "12/28", title: "前進巴黎", items: [ {time: "10:00", text: "史特拉斯堡還車"}, {time: "12:50", text: "搭TGV去巴黎 [已預訂]"}, {time: "15:50", text: "到飯店 (馨樂庭飯店)"} ] },
+            { date: "12/29", title: "羅浮宮 & 瘋馬秀", items: [ {time: "14:15", text: "羅浮宮參觀 [已買票]"}, {time: "20:30", text: "瘋馬秀開演 [已買票]"} ] },
+            { date: "12/30", title: "巴黎文化之旅", items: [ {time: "10:00", text: "聖母院登頂 (需預訂)"}, {time: "14:30", text: "巴黎歌劇院 [已買票]"}, {time: "20:00", text: "晚餐: LOCO (訂位Alex Hong)"} ] },
+            { date: "12/31", title: "凡爾賽宮 & 跨年", items: [ {time: "09:15", text: "凡爾賽宮入場"}, {time: "13:15", text: "午餐: Au Bon Accueil (訂位LiLing Chen)"}, {time: "20:00", text: "晚餐: Pedra Alta (龍蝦淡菜)"} ] },
+            { date: "1/1", title: "前往比利時布魯日", items: [ {time: "10:51", text: "巴黎北站往布魯日 [已預訂]"}, {time: "16:20", text: "玫瑰碼頭夕陽"} ] },
+            { date: "1/2", title: "漫步布魯日，宿根特", items: [ {time: "16:58", text: "前往根特"}, {time: "20:30", text: "晚餐 Mémé Gusta"} ] },
+            { date: "1/3", title: "根特古城 & 啟程返航", items: [ {time: "12:50", text: "伯爵城堡"}, {time: "18:34", text: "往法蘭克福機場 [已預訂]"} ] },
+            { date: "1/4", title: "法蘭克福返台", items: [ {time: "10:35", text: "法蘭克福機場起飛"} ] }
         ];
 
-        let tripData = JSON.parse(localStorage.getItem('france_trip_v2')) || originalTripData;
+        let tripData = JSON.parse(localStorage.getItem('france_trip_v3')) || originalTripData;
 
-        function saveToLocal() {
-            localStorage.setItem('france_trip_v2', JSON.stringify(tripData));
-        }
+        function save() { localStorage.setItem('france_trip_v3', JSON.stringify(tripData)); }
 
         function init() {
             const linkContainer = document.getElementById('dayLinks');
@@ -115,101 +96,113 @@
             linkContainer.innerHTML = '';
 
             tripData.forEach((day, dIdx) => {
-                // Sidebar Link
+                // Link
                 const link = document.createElement('button');
                 link.onclick = () => showDay(`day-${dIdx}`);
-                link.className = "w-full flex flex-col items-center p-4 hover:bg-slate-800 transition border-l-4 border-transparent hover:border-red-400";
-                link.innerHTML = `<span class="text-[10px] opacity-50">${day.date}</span><span class="text-xs md:text-sm font-bold">Day ${dIdx+1}</span>`;
+                link.className = "w-full p-4 hover:bg-slate-800 transition flex flex-col items-center border-l-4 border-transparent hover:border-red-400";
+                link.innerHTML = `<span class="text-[10px] opacity-50">${day.date}</span><span class="text-xs font-bold font-mono text-white">D${dIdx+1}</span>`;
                 linkContainer.appendChild(link);
 
-                // Content Card
+                // Card
                 const card = document.createElement('div');
                 card.id = `day-${dIdx}`;
                 card.className = "day-card space-y-4";
                 
-                let listHtml = `<div class="space-y-3">`;
+                let itemsHtml = `<div class="space-y-3">`;
                 day.items.forEach((item, iIdx) => {
-                    const isBooked = item.includes('預訂') || item.includes('預約') || item.includes('買票');
-                    listHtml += `
-                        <div class="flex items-start gap-3 p-3 bg-white border-b border-slate-100 group">
-                            <div class="mt-2 w-2 h-2 rounded-full bg-slate-300 shrink-0"></div>
-                            <div class="flex-1 overflow-hidden">
-                                <div id="display-${dIdx}-${iIdx}" class="flex items-center justify-between">
-                                    <span class="${isBooked ? 'text-blue-600 font-medium' : 'text-slate-600'}">${item}</span>
-                                    <div class="flex items-center gap-3">
+                    const isBooked = item.text.includes('預訂') || item.text.includes('預約') || item.text.includes('買票');
+                    itemsHtml += `
+                        <div class="flex items-start gap-3 p-3 bg-white border-b group">
+                            <div class="flex-1">
+                                <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between">
+                                    <div class="flex gap-4 items-baseline">
+                                        <span class="font-mono font-bold text-slate-400 w-12 shrink-0">${item.time || '--:--'}</span>
+                                        <span class="${isBooked ? 'text-blue-600 font-medium' : 'text-slate-600'} text-sm md:text-base">${item.text}</span>
                                         ${isBooked ? '<span class="booked-tag shrink-0">已確認</span>' : ''}
-                                        <button onclick="startEdit(${dIdx}, ${iIdx})" class="text-slate-400 hover:text-red-500 p-1">
-                                            <i class="fas fa-pen text-sm"></i>
-                                        </button>
                                     </div>
+                                    <button onclick="editItem(${dIdx}, ${iIdx})" class="text-slate-300 hover:text-red-500"><i class="fas fa-pen text-xs"></i></button>
                                 </div>
-                                <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-2 mt-1">
-                                    <input type="text" id="input-${dIdx}-${iIdx}" class="edit-input" value="${item}">
+                                <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-2 bg-slate-50 p-3 rounded-lg border border-red-100">
+                                    <div class="flex gap-2">
+                                        <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input w-20 font-mono" value="${item.time}">
+                                        <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input flex-1" value="${item.text}">
+                                    </div>
                                     <div class="flex justify-between items-center">
-                                        <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs p-1 hover:bg-red-50 rounded">
-                                            <i class="fas fa-trash-alt mr-1"></i>刪除此項
-                                        </button>
+                                        <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs"><i class="fas fa-trash"></i> 刪除</button>
                                         <div class="flex gap-2">
-                                            <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs px-2 py-1">取消</button>
-                                            <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-800 text-white text-xs px-3 py-1 rounded">儲存</button>
+                                            <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs px-2">取消</button>
+                                            <button onclick="confirmEdit(${dIdx}, ${iIdx})" class="bg-red-500 text-white text-xs px-3 py-1 rounded">儲存</button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>`;
                 });
-                listHtml += `</div>`;
                 
-                card.innerHTML = `<div class="mb-6"><span class="text-red-500 font-bold text-sm uppercase">${day.date}</span><h2 class="text-2xl font-black text-slate-800">${day.title}</h2></div>${listHtml}`;
+                itemsHtml += `
+                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:text-red-500 hover:border-red-200 transition text-sm">
+                        <i class="fas fa-plus mr-2"></i>新增行程項目
+                    </button>
+                </div>`;
+                
+                card.innerHTML = `
+                    <div class="mb-4">
+                        <span class="text-red-500 font-bold text-sm tracking-widest">${day.date}</span>
+                        <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
+                    </div>
+                    ${itemsHtml}`;
                 contentArea.appendChild(card);
             });
+            showDay('overview');
         }
 
-        function startEdit(dIdx, iIdx) {
-            document.getElementById(`display-${dIdx}-${iIdx}`).classList.add('hidden');
+        // 行動控制
+        function editItem(dIdx, iIdx) {
+            document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden');
             document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden');
-            document.getElementById(`input-${dIdx}-${iIdx}`).focus();
         }
 
         function cancelEdit(dIdx, iIdx) {
-            document.getElementById(`display-${dIdx}-${iIdx}`).classList.remove('hidden');
+            document.getElementById(`disp-${dIdx}-${iIdx}`).classList.remove('hidden');
             document.getElementById(`edit-${dIdx}-${iIdx}`).classList.add('hidden');
         }
 
-        function saveEdit(dIdx, iIdx) {
-            const val = document.getElementById(`input-${dIdx}-${iIdx}`).value;
-            tripData[dIdx].items[iIdx] = val;
-            saveToLocal();
-            init();
-            showDay(`day-${dIdx}`);
+        function confirmEdit(dIdx, iIdx) {
+            tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
+            tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
+            save(); init(); showDay(`day-${dIdx}`);
+        }
+
+        function addItem(dIdx) {
+            tripData[dIdx].items.push({time: "12:00", text: "新行程內容"});
+            save(); init(); showDay(`day-${dIdx}`);
+            const lastIdx = tripData[dIdx].items.length - 1;
+            editItem(dIdx, lastIdx); // 自動開啟最後一項的編輯模式
         }
 
         function deleteItem(dIdx, iIdx) {
-            if(confirm('確定要刪除這條行程嗎？')) {
+            if(confirm('刪除這條行程？')) {
                 tripData[dIdx].items.splice(iIdx, 1);
-                saveToLocal();
-                init();
-                showDay(`day-${dIdx}`);
+                save(); init(); showDay(`day-${dIdx}`);
             }
         }
 
-        function showDay(dayId) {
+        function showDay(id) {
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
-            document.getElementById(dayId).classList.add('active');
-            const dayIdx = dayId.split('-')[1];
+            document.getElementById(id).classList.add('active');
+            const dayIdx = id.split('-')[1];
             document.getElementById('currentDayTitle').innerText = tripData[dayIdx] ? `${tripData[dayIdx].date} 行程` : "行程總覽";
         }
 
         function resetToOriginal() {
-            if(confirm('這將會清除您所有的修改與刪除記錄，確定嗎？')) {
-                localStorage.removeItem('france_trip_v2');
+            if(confirm('恢復原始設定？所有編輯都會消失！')) {
+                localStorage.removeItem('france_trip_v3');
                 location.reload();
             }
         }
 
         function openImportPopup() { document.getElementById('importPopup').classList.remove('hidden'); }
         function closeImportPopup() { document.getElementById('importPopup').classList.add('hidden'); }
-        function processImport() { alert('功能開發中，請直接點擊筆頭圖示編輯！'); closeImportPopup(); }
 
         init();
     </script>
