@@ -16,7 +16,6 @@
         .sync-loading { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
-        /* 統一輸入框樣式與對齊 */
         .edit-input { 
             border: 1px solid #e2e8f0; 
             border-radius: 10px; 
@@ -27,16 +26,13 @@
             width: 100%;
             transition: border-color 0.2s;
         }
-        .edit-input:focus { border-color: #f43f5e; border-width: 1px; }
+        .edit-input:focus { border-color: #f43f5e; }
         
-        /* 專門限制時間欄位的寬度 */
         .time-input-wrapper { width: 140px; }
-
         .pin-active { color: #f43f5e !important; transform: rotate(-45deg); transition: all 0.2s; }
         .pin-inactive { color: #e2e8f0; }
         .map-icon-btn { color: #3b82f6; background: #eff6ff; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
-        
-        .label-text { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; items-center: center; gap: 4px; }
+        .label-text { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -80,6 +76,13 @@
         let tripData = [];
         let currentActiveTab = 'overview';
 
+        // 新增：排序函式
+        function sortTripItems() {
+            tripData.forEach(day => {
+                day.items.sort((a, b) => a.time.localeCompare(b.time));
+            });
+        }
+
         async function syncData() {
             const icon = document.getElementById('syncIcon');
             const status = document.getElementById('saveStatus');
@@ -91,6 +94,7 @@
                 const cloudData = await response.json();
                 if (cloudData && cloudData.length > 0) {
                     tripData = cloudData;
+                    sortTripItems(); // 同步後排序
                     renderUI();
                     status.innerText = '同步成功 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 }
@@ -105,6 +109,8 @@
             const status = document.getElementById('saveStatus');
             status.innerText = '儲存中...';
             try {
+                // 儲存前確保資料是排序過的
+                sortTripItems();
                 await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(tripData), mode: 'no-cors' });
                 status.innerText = '已同步至雲端';
             } catch (e) { status.innerText = '存檔失敗'; }
@@ -187,14 +193,13 @@
                         <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
                     </div>
                     <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">${itemsHtml}</div>
-                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 hover:bg-white transition-all">+ 新增行程細項</button>`;
+                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 transition-all">+ 新增行程細項</button>`;
                 contentArea.appendChild(card);
             });
             updatePinnedList();
             updateHeaderTitle();
         }
 
-        // 其餘邏輯保持不變...
         function updatePinnedList() {
             const container = document.getElementById('pinnedItemsContainer');
             if(!container) return;
@@ -249,6 +254,8 @@
             tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
             tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
             tripData[dIdx].items[iIdx].map = document.getElementById(`in-map-${dIdx}-${iIdx}`).value;
+            
+            sortTripItems(); // 儲存後立即重新排序
             renderUI();
             saveToCloud();
         }
@@ -262,10 +269,16 @@
         }
 
         function addItem(dIdx) {
+            // 新增一個 09:00 的空白項目
             tripData[dIdx].items.push({time: "09:00", text: "", pinned: false, map: ""});
+            sortTripItems(); // 排序確保位置正確
+            
+            // 找出排序後該新項目的 index (因為排序後位置可能變了)
+            const newIdx = tripData[dIdx].items.findIndex(i => i.text === "" && i.time === "09:00");
+            
             renderUI();
             saveToCloud();
-            startEdit(dIdx, tripData[dIdx].items.length - 1);
+            startEdit(dIdx, newIdx);
         }
 
         function showDay(id) {
@@ -280,7 +293,7 @@
             const titleEl = document.getElementById('currentDayTitle');
             if (currentActiveTab === 'overview') {
                 titleEl.innerText = "行程總覽";
-            } else {
+            } else if (tripData.length > 0) {
                 const idx = currentActiveTab.split('-')[1];
                 titleEl.innerText = tripData[idx].date + " 行程規劃";
             }
