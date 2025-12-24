@@ -213,20 +213,21 @@ async function saveToCloud() {
 
     try {
         sortTripItems();
-        const payload = { 
+        const payload = JSON.stringify({ 
             trip: tripData, 
-            tickets: ticketData
-        };
-
-        // 使用較原始的表單格式傳送，這能避開大部分的 CORS 阻擋
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', // 告訴瀏覽器發送後不用等回傳結果，直接視為成功
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(payload)
+            tickets: ticketData,
+            timestamp: new Date().getTime()
         });
 
-        // 由於 no-cors 模式無法獲取回傳，我們手動顯示成功
+        // 使用 text/plain 搭配 no-cors 模式，這幾乎不會被瀏覽器攔截
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'text/plain' },
+            body: payload
+        });
+
+        // 由於 no-cors 模式無法獲得回傳結果，我們透過延遲模擬成功
         setTimeout(() => {
             status.innerText = '已儲存至雲端 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             icon.classList.remove('sync-loading');
@@ -238,7 +239,6 @@ async function saveToCloud() {
         icon.classList.remove('sync-loading');
     }
 }
-
 
     function renderUI() {
         const linkContainer = document.getElementById('dayLinks');
