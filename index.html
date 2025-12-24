@@ -16,23 +16,18 @@
         .sync-loading { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
-        .edit-input { 
-            border: 1px solid #e2e8f0; 
-            border-radius: 10px; 
-            padding: 10px 12px; 
-            font-size: 0.95rem; 
-            outline: none;
-            background: white; 
-            width: 100%;
-            transition: border-color 0.2s;
-        }
+        .edit-input { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 0.95rem; outline: none; background: white; width: 100%; }
         .edit-input:focus { border-color: #f43f5e; }
-        
         .time-input-wrapper { width: 140px; }
         .pin-active { color: #f43f5e !important; transform: rotate(-45deg); transition: all 0.2s; }
         .pin-inactive { color: #e2e8f0; }
         .map-icon-btn { color: #3b82f6; background: #eff6ff; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
         .label-text { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+        
+        /* 票券夾圖片樣式 */
+        .ticket-img { width: 100%; height: 200px; object-fit: contain; background: #f1f5f9; border-radius: 12px; border: 1px dashed #cbd5e1; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        .modal.active { display: flex; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -47,6 +42,10 @@
                 <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition">
                     <i class="fas fa-home w-8 text-rose-400"></i><span class="hidden md:inline ml-2 text-sm font-medium">行程總覽</span>
                 </button>
+                <button onclick="showDay('tickets')" class="w-full flex items-center p-4 hover:bg-slate-800 transition">
+                    <i class="fas fa-qrcode w-8 text-blue-400"></i><span class="hidden md:inline ml-2 text-sm font-medium">票券夾</span>
+                </button>
+                <div class="border-t border-slate-800 my-2"></div>
                 <div id="dayLinks"></div>
             </nav>
             <button onclick="syncData()" class="p-4 text-[10px] text-blue-400 hover:text-white uppercase border-t border-slate-800 text-center flex flex-col items-center">
@@ -57,29 +56,50 @@
 
         <main class="flex-1 overflow-y-auto relative bg-white">
             <header class="sticky top-0 bg-white/90 backdrop-blur-md z-10 px-6 py-4 border-b flex justify-between items-center">
-                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">載入中...</h2>
+                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">2025 法國之行</h2>
                 <div class="text-[10px] text-slate-400 px-2 py-1 bg-slate-100 rounded" id="saveStatus">就緒</div>
             </header>
 
             <div id="contentArea" class="p-4 md:p-8 max-w-4xl mx-auto">
-                <div id="overview" class="day-card active text-center py-20">
-                    <i class="fas fa-spinner sync-loading text-3xl text-slate-300"></i>
-                    <p class="mt-4 text-slate-500">正在同步雲端資料...</p>
+                <div id="overview" class="day-card active">
+                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 text-white mb-8 shadow-xl relative overflow-hidden">
+                        <div class="relative z-10">
+                            <h1 class="text-2xl font-black mb-2 tracking-tight">Bonjour, France!</h1>
+                            <p class="text-slate-400 text-sm font-mono uppercase tracking-widest">Wine & Christmas Trip 2025</p>
+                        </div>
+                        <i class="fas fa-wine-bottle absolute -right-4 -bottom-4 text-8xl opacity-10 rotate-12"></i>
+                    </div>
+                    <div id="pinnedItemsContainer" class="space-y-6">
+                        <div class="text-center py-20 text-slate-300"><i class="fas fa-sync-alt sync-loading mb-2 text-2xl"></i><br>讀取資料中...</div>
+                    </div>
+                </div>
+                
+                <div id="tickets" class="day-card space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-black text-slate-800">票券 QR Code</h2>
+                        <button onclick="addTicket()" class="bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-200">+ 新增</button>
+                    </div>
+                    <div id="ticketGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 </div>
             </div>
         </main>
+    </div>
+
+    <div id="imgModal" class="modal" onclick="this.classList.remove('active')">
+        <img id="modalImg" src="" class="max-w-full max-h-full object-contain">
     </div>
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxaqVKc56vf2-B7WCsiwy9sf7ADtM9YJEyhAjLzqJjAEyKjXqyiGcdBNqYgdfgXX0t_HQ/exec"; 
 
         let tripData = [];
+        let ticketData = [];
         let currentActiveTab = 'overview';
 
-        // 新增：排序函式
         function sortTripItems() {
+            if (!Array.isArray(tripData)) return;
             tripData.forEach(day => {
-                day.items.sort((a, b) => a.time.localeCompare(b.time));
+                if (day.items) day.items.sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
             });
         }
 
@@ -92,14 +112,25 @@
             try {
                 const response = await fetch(SCRIPT_URL);
                 const cloudData = await response.json();
-                if (cloudData && cloudData.length > 0) {
-                    tripData = cloudData;
-                    sortTripItems(); // 同步後排序
+                
+                if (cloudData) {
+                    // 支援兩種資料結構：舊版的陣列或新版的物件
+                    if (Array.isArray(cloudData)) {
+                        tripData = cloudData;
+                        ticketData = [];
+                    } else {
+                        tripData = cloudData.trip || [];
+                        ticketData = cloudData.tickets || [];
+                    }
+                    sortTripItems();
                     renderUI();
                     status.innerText = '同步成功 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 }
             } catch (e) {
-                status.innerText = '同步失敗';
+                console.error("Sync Error:", e);
+                status.innerText = '同步失敗，請檢查網路';
+                // 失敗時若原本沒資料，給予空陣列避免轉圈圈
+                if (tripData.length === 0) { tripData = []; renderUI(); }
             } finally {
                 icon.classList.remove('sync-loading');
             }
@@ -109,42 +140,36 @@
             const status = document.getElementById('saveStatus');
             status.innerText = '儲存中...';
             try {
-                // 儲存前確保資料是排序過的
                 sortTripItems();
-                await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(tripData), mode: 'no-cors' });
-                status.innerText = '已同步至雲端';
+                const payload = { trip: tripData, tickets: ticketData };
+                await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
+                status.innerText = '已儲存至雲端';
             } catch (e) { status.innerText = '存檔失敗'; }
         }
 
         function renderUI() {
             const linkContainer = document.getElementById('dayLinks');
-            const contentArea = document.getElementById('contentArea');
-            
-            contentArea.innerHTML = `
-                <div id="overview" class="day-card ${currentActiveTab === 'overview' ? 'active' : ''}">
-                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 text-white mb-8 shadow-xl relative overflow-hidden">
-                        <div class="relative z-10">
-                            <h1 class="text-2xl font-black mb-2 tracking-tight">2025 法國之行</h1>
-                            <p class="text-slate-400 text-sm font-mono uppercase tracking-widest">Wine & Christmas Trip</p>
-                        </div>
-                        <i class="fas fa-wine-bottle absolute -right-4 -bottom-4 text-8xl opacity-10 rotate-12"></i>
-                    </div>
-                    <div class="mb-6 flex items-center gap-2 text-slate-800 font-bold mb-4 px-1">
-                        <i class="fas fa-thumbtack text-rose-500"></i>
-                        <span>精選釘選清單</span>
-                    </div>
-                    <div id="pinnedItemsContainer" class="space-y-6"></div>
-                </div>`;
-            
             linkContainer.innerHTML = '';
-
+            
             tripData.forEach((day, dIdx) => {
                 const link = document.createElement('button');
                 link.onclick = () => showDay(`day-${dIdx}`);
                 link.className = `w-full p-4 hover:bg-slate-800 transition flex flex-col items-center border-l-4 ${currentActiveTab === 'day-'+dIdx ? 'border-rose-500 bg-slate-800' : 'border-transparent'}`;
                 link.innerHTML = `<span class="text-[10px] opacity-40 font-mono">${day.date}</span><span class="text-xs font-bold text-white">D${dIdx+1}</span>`;
                 linkContainer.appendChild(link);
+            });
 
+            renderTripContent();
+            renderTicketContent();
+            updatePinnedList();
+            updateHeaderTitle();
+        }
+
+        function renderTripContent() {
+            document.querySelectorAll('.day-card[id^="day-"]').forEach(el => el.remove());
+            const contentArea = document.getElementById('contentArea');
+
+            tripData.forEach((day, dIdx) => {
                 const card = document.createElement('div');
                 card.id = `day-${dIdx}`;
                 card.className = `day-card space-y-4 ${currentActiveTab === 'day-'+dIdx ? 'active' : ''}`;
@@ -166,22 +191,22 @@
                             </div>
                             <div id="edit-${dIdx}-${iIdx}" class="hidden space-y-4 bg-slate-50 p-5 rounded-2xl mt-2 border border-slate-200">
                                 <div class="time-input-wrapper">
-                                    <label class="label-text"><i class="far fa-clock"></i> 時間</label>
+                                    <label class="label-text">時間</label>
                                     <input type="time" id="in-time-${dIdx}-${iIdx}" class="edit-input font-mono" value="${item.time}">
                                 </div>
                                 <div>
-                                    <label class="label-text"><i class="fas fa-pen"></i> 行程細項</label>
-                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input" value="${item.text}" placeholder="要做什麼呢？">
+                                    <label class="label-text">行程細項</label>
+                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input" value="${item.text}">
                                 </div>
                                 <div>
-                                    <label class="label-text"><i class="fas fa-map-marker-alt"></i> 地點連結 (選填)</label>
-                                    <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="貼上 Google Maps 網址">
+                                    <label class="label-text">地點連結</label>
+                                    <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="Google Maps 網址">
                                 </div>
                                 <div class="flex justify-between items-center pt-2">
-                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-400 text-xs font-bold hover:text-red-600 transition">刪除項目</button>
+                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-400 text-xs font-bold px-2 py-1">刪除</button>
                                     <div class="flex gap-3">
-                                        <button onclick="renderUI()" class="text-slate-400 text-xs font-bold px-2 py-2">取消</button>
-                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-6 py-2 rounded-xl font-bold">儲存更新</button>
+                                        <button onclick="renderUI()" class="text-slate-400 text-xs font-bold">取消</button>
+                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-6 py-2 rounded-xl font-bold">儲存</button>
                                     </div>
                                 </div>
                             </div>
@@ -193,109 +218,100 @@
                         <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
                     </div>
                     <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">${itemsHtml}</div>
-                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 transition-all">+ 新增行程細項</button>`;
+                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-sm font-bold hover:border-rose-300 hover:text-rose-500 transition-all">+ 新增項目</button>`;
                 contentArea.appendChild(card);
             });
-            updatePinnedList();
-            updateHeaderTitle();
         }
 
+        function renderTicketContent() {
+            const grid = document.getElementById('ticketGrid');
+            if(!grid) return;
+            grid.innerHTML = '';
+            ticketData.forEach((t, idx) => {
+                const div = document.createElement('div');
+                div.className = "bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3";
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <input type="text" onchange="updateTicketName(${idx}, this.value)" class="font-bold text-slate-700 bg-transparent border-none focus:ring-0 p-0 text-sm w-full mr-2" value="${t.name}">
+                        <button onclick="deleteTicket(${idx})" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash-alt text-xs"></i></button>
+                    </div>
+                    <img src="${t.img || 'https://placehold.co/400x400?text=No+QR+Code'}" class="ticket-img" onclick="zoomTicket('${t.img}')">
+                    <label class="block w-full text-center py-2 bg-slate-50 rounded-lg text-xs font-bold text-slate-500 cursor-pointer hover:bg-blue-50 hover:text-blue-500 transition">
+                        更換截圖 <input type="file" class="hidden" accept="image/*" onchange="uploadTicketImg(${idx}, this)">
+                    </label>
+                `;
+                grid.appendChild(div);
+            });
+            if (ticketData.length === 0) {
+                grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-300 border-2 border-dashed rounded-3xl text-sm font-medium">尚無票券</div>`;
+            }
+        }
+
+        // 票券邏輯
+        function addTicket() { ticketData.push({ name: "新票券", img: "" }); renderTicketContent(); saveToCloud(); }
+        function updateTicketName(idx, val) { ticketData[idx].name = val; saveToCloud(); }
+        function deleteTicket(idx) { if(confirm('刪除票券？')) { ticketData.splice(idx, 1); renderTicketContent(); saveToCloud(); } }
+        function uploadTicketImg(idx, input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => { ticketData[idx].img = e.target.result; renderTicketContent(); saveToCloud(); };
+            reader.readAsDataURL(file);
+        }
+        function zoomTicket(src) { if(!src) return; document.getElementById('modalImg').src = src; document.getElementById('imgModal').classList.add('active'); }
+
+        // 行程邏輯
         function updatePinnedList() {
             const container = document.getElementById('pinnedItemsContainer');
             if(!container) return;
             container.innerHTML = '';
-            
             let hasPinned = false;
             tripData.forEach((day, dIdx) => {
-                const pinnedInDay = day.items.filter(i => i.pinned);
-                if (pinnedInDay.length > 0) {
+                const pinned = day.items.filter(i => i.pinned);
+                if (pinned.length > 0) {
                     hasPinned = true;
-                    const dayBox = document.createElement('div');
-                    dayBox.className = "bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden";
-                    dayBox.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-400 border-b flex justify-between"><span>${day.date}</span><span>${day.title}</span></div>`;
-                    
-                    const itemWrap = document.createElement('div');
-                    pinnedInDay.forEach(item => {
+                    const box = document.createElement('div');
+                    box.className = "bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4";
+                    box.innerHTML = `<div class="bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-400 border-b flex justify-between"><span>${day.date}</span><span>${day.title}</span></div>`;
+                    pinned.forEach(item => {
                         const itemDiv = document.createElement('div');
                         itemDiv.className = "flex items-center justify-between p-4 border-b last:border-0";
-                        itemDiv.innerHTML = `
-                            <div class="flex items-center gap-4 overflow-hidden">
-                                <span class="font-mono text-xs text-rose-400 font-bold">${item.time}</span>
-                                <span class="text-sm font-bold text-slate-700 truncate">${item.text}</span>
-                            </div>
-                            <div class="flex gap-2 shrink-0">
-                                ${item.map ? `<a href="${item.map}" target="_blank" class="map-icon-btn"><i class="fas fa-map-marker-alt"></i></a>` : ''}
-                                <button onclick="showDay('day-${dIdx}')" class="p-2 text-slate-300"><i class="fas fa-chevron-right"></i></button>
-                            </div>`;
-                        itemWrap.appendChild(itemDiv);
+                        itemDiv.innerHTML = `<div class="flex items-center gap-4"><span class="font-mono text-xs text-rose-400 font-bold">${item.time}</span><span class="text-sm font-bold text-slate-700">${item.text}</span></div><button onclick="showDay('day-${dIdx}')" class="p-2 text-slate-300"><i class="fas fa-chevron-right"></i></button>`;
+                        box.appendChild(itemDiv);
                     });
-                    dayBox.appendChild(itemWrap);
-                    container.appendChild(dayBox);
+                    container.appendChild(box);
                 }
             });
-
-            if(!hasPinned) {
-                container.innerHTML = `<div class="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 text-sm font-medium">點擊行程旁的圖釘，<br>將重要預約顯示在這裡</div>`;
-            }
+            if(!hasPinned) container.innerHTML = `<div class="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-slate-400 text-sm font-medium">尚未釘選重要項目</div>`;
         }
 
-        function togglePin(dIdx, iIdx) {
-            tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned;
-            renderUI();
-            saveToCloud();
-        }
-
-        function startEdit(dIdx, iIdx) {
-            document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden');
-            document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden');
-        }
-
+        function togglePin(dIdx, iIdx) { tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned; renderUI(); saveToCloud(); }
+        function startEdit(dIdx, iIdx) { document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden'); document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden'); }
         function saveEdit(dIdx, iIdx) {
             tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
             tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
             tripData[dIdx].items[iIdx].map = document.getElementById(`in-map-${dIdx}-${iIdx}`).value;
-            
-            sortTripItems(); // 儲存後立即重新排序
-            renderUI();
-            saveToCloud();
+            sortTripItems(); renderUI(); saveToCloud();
         }
-
-        function deleteItem(dIdx, iIdx) {
-            if(confirm('確定刪除此行程項目？')) {
-                tripData[dIdx].items.splice(iIdx, 1);
-                renderUI();
-                saveToCloud();
-            }
-        }
-
-        function addItem(dIdx) {
-            // 新增一個 09:00 的空白項目
-            tripData[dIdx].items.push({time: "09:00", text: "", pinned: false, map: ""});
-            sortTripItems(); // 排序確保位置正確
-            
-            // 找出排序後該新項目的 index (因為排序後位置可能變了)
-            const newIdx = tripData[dIdx].items.findIndex(i => i.text === "" && i.time === "09:00");
-            
-            renderUI();
-            saveToCloud();
-            startEdit(dIdx, newIdx);
-        }
+        function deleteItem(dIdx, iIdx) { if(confirm('刪除行程？')) { tripData[dIdx].items.splice(iIdx, 1); renderUI(); saveToCloud(); } }
+        function addItem(dIdx) { tripData[dIdx].items.push({time: "09:00", text: "", pinned: false, map: ""}); sortTripItems(); renderUI(); saveToCloud(); }
 
         function showDay(id) {
             currentActiveTab = id;
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+            const target = document.getElementById(id);
+            if(target) target.classList.add('active');
             renderUI();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function updateHeaderTitle() {
             const titleEl = document.getElementById('currentDayTitle');
-            if (currentActiveTab === 'overview') {
-                titleEl.innerText = "行程總覽";
-            } else if (tripData.length > 0) {
+            if (currentActiveTab === 'overview') titleEl.innerText = "行程總覽";
+            else if (currentActiveTab === 'tickets') titleEl.innerText = "票券夾";
+            else {
                 const idx = currentActiveTab.split('-')[1];
-                titleEl.innerText = tripData[idx].date + " 行程規劃";
+                if(tripData[idx]) titleEl.innerText = tripData[idx].date + " " + tripData[idx].title;
             }
         }
 
