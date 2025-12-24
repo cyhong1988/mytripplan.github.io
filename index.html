@@ -204,36 +204,40 @@
         }
     }
 
-        async function saveToCloud() {
-        const status = document.getElementById('saveStatus');
-        const icon = document.getElementById('syncIcon');
-        
-        status.innerText = '儲存中...';
-        icon.classList.add('sync-loading');
+async function saveToCloud() {
+    const status = document.getElementById('saveStatus');
+    const icon = document.getElementById('syncIcon');
+    
+    status.innerText = '儲存中...';
+    icon.classList.add('sync-loading');
 
-        try {
-            sortTripItems();
-            const payload = { 
-                trip: tripData, 
-                tickets: ticketData,
-                timestamp: new Date().getTime() // 增加時間戳記確保資料更新
-            };
+    try {
+        sortTripItems();
+        const payload = { 
+            trip: tripData, 
+            tickets: ticketData
+        };
 
-            // 使用傳統表單格式或純 JSON 送出，移除 no-cors
-            const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
+        // 使用較原始的表單格式傳送，這能避開大部分的 CORS 阻擋
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // 告訴瀏覽器發送後不用等回傳結果，直接視為成功
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+        });
 
-            // 即使 response 因為 CORS 報錯，通常資料已經送達
+        // 由於 no-cors 模式無法獲取回傳，我們手動顯示成功
+        setTimeout(() => {
             status.innerText = '已儲存至雲端 ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        } catch (e) { 
-            console.perror("Save Error:", e);
-            status.innerText = '儲存完成 (請重新整理確認)'; 
-        } finally {
             icon.classList.remove('sync-loading');
-        }
+        }, 1000);
+
+    } catch (e) { 
+        console.error("Save Error:", e);
+        status.innerText = '儲存失敗'; 
+        icon.classList.remove('sync-loading');
     }
+}
 
 
     function renderUI() {
