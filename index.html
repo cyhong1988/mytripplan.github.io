@@ -10,21 +10,13 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
         * { box-sizing: border-box; }
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; }
-        .sidebar { transition: all 0.3s; }
         .day-card { display: none; }
         .day-card.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .booked-tag { background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
-        
-        /* 修正後的輸入框 CSS */
-        .edit-container { width: 100%; max-width: 100%; }
-        .edit-row { display: flex; gap: 8px; width: 100%; margin-bottom: 8px; }
-        .in-time { width: 70px; flex-shrink: 0; }
-        .in-text { flex-grow: 1; min-width: 0; } /* min-width: 0 是防止 flex 項目超出容器的關鍵 */
-        .edit-input { border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 0.9rem; outline-color: #f43f5e; }
-        
-        .pin-active { color: #f43f5e !important; transform: rotate(-45deg); transition: all 0.2s; }
-        .pin-inactive { color: #e2e8f0; transition: all 0.2s; }
+        .sync-loading { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .edit-input { border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 0.9rem; outline-color: #f43f5e; background: white; width: 100%; }
+        .pin-active { color: #f43f5e !important; transform: rotate(-45deg); }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -36,77 +28,99 @@
                 <span class="hidden md:inline block mt-2 font-bold tracking-widest text-sm uppercase">France 2025</span>
             </div>
             <nav class="flex-1 overflow-y-auto py-4">
-                <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition text-center">
-                    <i class="fas fa-home w-8"></i><span class="hidden md:inline ml-2 text-sm text-left">行程總覽</span>
+                <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition">
+                    <i class="fas fa-home w-8"></i><span class="hidden md:inline ml-2 text-sm">行程總覽</span>
                 </button>
                 <div id="dayLinks"></div>
             </nav>
-            <button onclick="resetToOriginal()" class="p-4 text-[10px] text-slate-500 hover:text-white uppercase border-t border-slate-800 text-center">重置資料</button>
+            <button onclick="syncData()" class="p-4 text-[10px] text-blue-400 hover:text-white uppercase border-t border-slate-800 text-center flex flex-col items-center">
+                <i id="syncIcon" class="fas fa-sync-alt mb-1"></i>
+                <span class="hidden md:inline">同步雲端資料</span>
+            </button>
         </aside>
 
         <main class="flex-1 overflow-y-auto relative bg-white">
             <header class="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-6 py-4 border-b flex justify-between items-center">
-                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">行程總覽</h2>
-                <div class="flex gap-2 text-[10px] text-slate-400">
-                    <span id="saveStatus">已儲存</span>
-                </div>
+                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">載入中...</h2>
+                <div class="text-[10px] text-slate-400" id="saveStatus">就緒</div>
             </header>
 
             <div id="contentArea" class="p-4 md:p-8 max-w-4xl mx-auto">
-                <div id="overview" class="day-card active">
-                    <div class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-6 text-white mb-8 shadow-lg">
-                        <h1 class="text-2xl font-bold mb-2">跟阿猷二訪法國之酒莊之旅</h1>
-                        <p class="opacity-90 font-mono text-sm">2025.12.25 ~ 2026.1.5</p>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <i class="fas fa-thumbtack text-red-500"></i>
-                            精選釘選行程
-                        </h3>
-                        <div id="pinnedItemsContainer" class="grid gap-3"></div>
-                    </div>
+                <div id="overview" class="day-card active text-center py-20">
+                    <i class="fas fa-spinner sync-loading text-3xl text-slate-300"></i>
+                    <p class="mt-4 text-slate-500">正在同步雲端資料...</p>
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        const originalData = [
-            { date: "12/25", title: "啟程：桃園機場", items: [ {time: "20:30", text: "到桃園機場一航", pinned: false}, {time: "23:10", text: "飛機起飛", pinned: false} ] },
-            { date: "12/26", title: "抵達 & 史特拉斯堡", items: [ {time: "07:30", text: "抵達法蘭克福", pinned: false}, {time: "09:51", text: "德鐵 ICE [已預訂]", pinned: false}, {time: "19:00", text: "租車 Alamo [已預訂]", pinned: false} ] },
-            { date: "12/27", title: "酒莊巡禮 & 科馬", items: [ {time: "14:00", text: "酒莊預約買酒", pinned: false}, {time: "15:00", text: "科馬 Check-in", pinned: false} ] },
-            { date: "12/28", title: "前進巴黎", items: [ {time: "12:50", text: "搭 TGV 往巴黎", pinned: false}, {time: "15:50", text: "到飯店", pinned: false} ] },
-            { date: "12/29", title: "羅浮宮 & 瘋馬秀", items: [ {time: "14:15", text: "羅浮宮 [已買票]", pinned: false}, {time: "20:30", text: "瘋馬秀 [已買票]", pinned: false} ] },
-            { date: "12/30", title: "巴黎文化之旅", items: [ {time: "10:00", text: "聖母院登頂", pinned: false}, {time: "14:30", text: "巴黎歌劇院", pinned: false} ] },
-            { date: "12/31", title: "凡爾賽宮 & 跨年", items: [ {time: "09:15", text: "凡爾賽宮 [已預訂]", pinned: false}, {time: "20:00", text: "Pedra Alta 晚餐", pinned: false} ] },
-            { date: "1/1", title: "前往布魯日", items: [ {time: "10:51", text: "巴黎北站 TGV", pinned: false}, {time: "19:00", text: "Seafoodbar Belge", pinned: false} ] },
-            { date: "1/2", title: "布魯日 & 根特", items: [ {time: "16:58", text: "火車往根特", pinned: false}, {time: "20:30", text: "Mémé Gusta 晚餐", pinned: false} ] },
-            { date: "1/3", title: "啟程返航", items: [ {time: "18:34", text: "往法蘭克福火車", pinned: false} ] },
-            { date: "1/4", title: "返程", items: [ {time: "10:35", text: "法蘭克福起飛", pinned: false} ] }
-        ];
+        // 【重要】請在此處貼上你的 Google Apps Script Web App 網址
+        const SCRIPT_URL = "YOUR_GOOGLE_SCRIPT_URL"; 
 
-        let tripData = JSON.parse(localStorage.getItem('trip_v7')) || originalData;
+        let tripData = [];
 
-        function save() {
-            localStorage.setItem('trip_v7', JSON.stringify(tripData));
-            updatePinnedList();
-            document.getElementById('saveStatus').innerText = '儲存於 ' + new Date().toLocaleTimeString();
+        // 從雲端讀取資料
+        async function syncData() {
+            const icon = document.getElementById('syncIcon');
+            const status = document.getElementById('saveStatus');
+            icon.classList.add('sync-loading');
+            status.innerText = '同步中...';
+
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const cloudData = await response.json();
+                
+                if (cloudData && cloudData.length > 0) {
+                    tripData = cloudData;
+                    renderUI();
+                    status.innerText = '雲端同步成功';
+                } else {
+                    // 如果雲端沒資料，就初始化
+                    status.innerText = '雲端無資料';
+                }
+            } catch (e) {
+                console.error(e);
+                status.innerText = '同步失敗，請檢查網址';
+            } finally {
+                icon.classList.remove('sync-loading');
+            }
         }
 
-        function init() {
+        // 儲存到雲端
+        async function saveToCloud() {
+            const status = document.getElementById('saveStatus');
+            status.innerText = '儲存中...';
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(tripData),
+                    mode: 'no-cors' // Google Apps Script 要求 no-cors 或特殊處理
+                });
+                status.innerText = '已儲存至雲端';
+            } catch (e) {
+                status.innerText = '儲存失敗';
+            }
+        }
+
+        function renderUI() {
             const linkContainer = document.getElementById('dayLinks');
             const contentArea = document.getElementById('contentArea');
-            const overview = document.getElementById('overview');
-            contentArea.innerHTML = '';
-            contentArea.appendChild(overview);
+            contentArea.innerHTML = `
+                <div id="overview" class="day-card active">
+                    <div class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-6 text-white mb-8 shadow-lg">
+                        <h1 class="text-2xl font-bold mb-2">二訪法國行程同步版</h1>
+                        <p class="opacity-90 font-mono text-sm">多裝置即時同步</p>
+                    </div>
+                    <div id="pinnedItemsContainer" class="grid gap-3"></div>
+                </div>`;
             linkContainer.innerHTML = '';
 
             tripData.forEach((day, dIdx) => {
                 const link = document.createElement('button');
                 link.onclick = () => showDay(`day-${dIdx}`);
                 link.className = "w-full p-4 hover:bg-slate-800 transition flex flex-col items-center border-l-4 border-transparent hover:border-red-400";
-                link.innerHTML = `<span class="text-[10px] opacity-50 font-mono">${day.date}</span><span class="text-xs font-bold text-white">D${dIdx+1}</span>`;
+                link.innerHTML = `<span class="text-[10px] opacity-50">${day.date}</span><span class="text-xs font-bold text-white">D${dIdx+1}</span>`;
                 linkContainer.appendChild(link);
 
                 const card = document.createElement('div');
@@ -116,103 +130,84 @@
                 let itemsHtml = `<div class="space-y-3">`;
                 day.items.forEach((item, iIdx) => {
                     itemsHtml += `
-                        <div class="flex flex-col p-3 bg-white border-b group">
-                            <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between gap-2 overflow-hidden">
-                                <div class="flex gap-4 items-center overflow-hidden">
-                                    <span class="font-mono font-bold text-slate-400 w-12 text-sm shrink-0">${item.time}</span>
-                                    <span class="text-slate-700 text-sm md:text-base truncate">${item.text}</span>
+                        <div class="flex flex-col p-3 bg-white border-b">
+                            <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between gap-2">
+                                <div class="flex gap-3 items-center overflow-hidden">
+                                    <span class="font-mono font-bold text-slate-400 w-12 text-xs shrink-0">${item.time}</span>
+                                    <span class="text-sm truncate">${item.text}</span>
+                                    ${item.map ? `<a href="${item.map}" target="_blank" class="text-blue-500"><i class="fas fa-map-marker-alt"></i></a>` : ''}
                                 </div>
-                                <div class="flex items-center gap-2 shrink-0">
-                                    <button onclick="togglePin(${dIdx}, ${iIdx})" id="pin-icon-${dIdx}-${iIdx}" class="p-2 ${item.pinned ? 'pin-active' : 'pin-inactive'} transition">
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <button onclick="togglePin(${dIdx}, ${iIdx})" id="pin-icon-${dIdx}-${iIdx}" class="p-2 ${item.pinned ? 'pin-active' : 'text-slate-100'}">
                                         <i class="fas fa-thumbtack"></i>
                                     </button>
-                                    <button onclick="startEdit(${dIdx}, ${iIdx})" class="p-2 text-slate-200 hover:text-slate-400"><i class="fas fa-pen text-xs"></i></button>
+                                    <button onclick="startEdit(${dIdx}, ${iIdx})" class="p-2 text-slate-200"><i class="fas fa-pen text-[10px]"></i></button>
                                 </div>
                             </div>
-                            <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-3 bg-slate-50 p-4 rounded-xl mt-2 border border-red-100 edit-container">
-                                <div class="edit-row">
-                                    <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input in-time font-mono" value="${item.time}" placeholder="時間">
-                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input in-text" value="${item.text}" placeholder="要做什麼？">
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs font-bold px-2 py-1"><i class="fas fa-trash-alt mr-1"></i> 刪除</button>
-                                    <div class="flex gap-3">
-                                        <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs font-bold px-3 py-2 uppercase">取消</button>
-                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm">儲存更新</button>
-                                    </div>
+                            <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-2 bg-slate-50 p-3 rounded-xl mt-2 border border-red-100">
+                                <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input" value="${item.time}">
+                                <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input" value="${item.text}">
+                                <input type="text" id="in-map-${dIdx}-${iIdx}" class="edit-input" value="${item.map || ''}" placeholder="Map URL">
+                                <div class="flex justify-end gap-2 mt-2">
+                                    <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs px-4 py-2 rounded-lg">儲存並同步</button>
                                 </div>
                             </div>
                         </div>`;
                 });
-                
-                card.innerHTML = `<div class="mb-4 px-1"><span class="text-red-500 font-bold text-xs uppercase tracking-widest">${day.date}</span><h2 class="text-xl font-black text-slate-800">${day.title}</h2></div>${itemsHtml}<button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-100 rounded-2xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition text-sm font-bold">+ 新增行程細項</button></div>`;
+                card.innerHTML = `<h2 class="text-xl font-black mb-4">${day.date} ${day.title}</h2>${itemsHtml}</div>`;
                 contentArea.appendChild(card);
             });
             updatePinnedList();
+            showDay('overview');
         }
 
         function togglePin(dIdx, iIdx) {
             tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned;
-            const btn = document.getElementById(`pin-icon-${dIdx}-${iIdx}`);
-            btn.className = `p-2 ${tripData[dIdx].items[iIdx].pinned ? 'pin-active' : 'pin-inactive'} transition`;
-            save();
+            saveEditToMemory();
+        }
+
+        async function saveEdit(dIdx, iIdx) {
+            tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
+            tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
+            tripData[dIdx].items[iIdx].map = document.getElementById(`in-map-${dIdx}-${iIdx}`).value;
+            saveEditToMemory();
+        }
+
+        function saveEditToMemory() {
+            renderUI();
+            saveToCloud();
         }
 
         function updatePinnedList() {
             const container = document.getElementById('pinnedItemsContainer');
+            if(!container) return;
             container.innerHTML = '';
-            let count = 0;
             tripData.forEach((day, dIdx) => {
-                day.items.forEach((item, iIdx) => {
+                day.items.forEach((item) => {
                     if (item.pinned) {
-                        count++;
                         const div = document.createElement('div');
-                        div.className = "flex items-center gap-3 p-3 bg-white border rounded-xl shadow-sm hover:border-red-200 transition";
-                        div.innerHTML = `<div class="text-[9px] bg-red-50 text-red-500 font-bold px-2 py-1 rounded shrink-0">${day.date}</div><div class="font-mono text-xs text-slate-400 w-10 shrink-0">${item.time}</div><div class="text-sm text-slate-600 flex-1 truncate font-medium">${item.text}</div><button onclick="showDay('day-${dIdx}')" class="text-slate-300 hover:text-red-500 px-2"><i class="fas fa-chevron-right"></i></button>`;
+                        div.className = "flex items-center gap-3 p-3 bg-white border rounded-xl shadow-sm";
+                        div.innerHTML = `<div class="text-[9px] bg-red-50 text-red-500 font-bold px-2 py-1 rounded shrink-0">${day.date}</div><div class="text-sm flex-1 truncate font-medium">${item.text}</div>`;
                         container.appendChild(div);
                     }
                 });
             });
-            if(count === 0) container.innerHTML = `<div class="text-center py-12 text-slate-300 text-xs border-2 border-dashed rounded-2xl">目前首頁是空的，快去行程頁面釘選重要時刻吧！</div>`;
+        }
+
+        function showDay(id) {
+            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            const idx = id.split('-')[1];
+            document.getElementById('currentDayTitle').innerText = tripData[idx] ? `${tripData[idx].date} 行程` : "總覽";
         }
 
         function startEdit(dIdx, iIdx) {
             document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden');
             document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden');
         }
-        function cancelEdit(dIdx, iIdx) {
-            document.getElementById(`disp-${dIdx}-${iIdx}`).classList.remove('hidden');
-            document.getElementById(`edit-${dIdx}-${iIdx}`).classList.add('hidden');
-        }
-        function saveEdit(dIdx, iIdx) {
-            tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
-            tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
-            save(); init(); showDay(`day-${dIdx}`);
-        }
-        function addItem(dIdx) {
-            tripData[dIdx].items.push({time: "12:00", text: "新行程", pinned: false});
-            save(); init(); showDay(`day-${dIdx}`);
-            startEdit(dIdx, tripData[dIdx].items.length - 1);
-        }
-        function deleteItem(dIdx, iIdx) {
-            if(confirm('確定刪除此項行程嗎？')) { tripData[dIdx].items.splice(iIdx, 1); save(); init(); showDay(`day-${dIdx}`); }
-        }
-        function showDay(id) {
-            document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            const idx = id.split('-')[1];
-            document.getElementById('currentDayTitle').innerText = tripData[idx] ? `${tripData[idx].date} 行程規劃` : "行程總覽";
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        function resetToOriginal() {
-            if(confirm('重置將清除所有修改內容且取消所有釘選，確定嗎？')) {
-                localStorage.removeItem('trip_v7');
-                location.reload();
-            }
-        }
 
-        init();
-        showDay('overview');
+        // 初始化：先嘗試同步資料
+        syncData();
     </script>
 </body>
 </html>
