@@ -8,13 +8,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        * { box-sizing: border-box; }
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; }
         .sidebar { transition: all 0.3s; }
         .day-card { display: none; }
         .day-card.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .booked-tag { background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
-        .edit-input { border: 1px solid #ddd; border-radius: 4px; padding: 6px; font-size: 0.9rem; outline-color: #f43f5e; }
+        
+        /* 修正後的輸入框 CSS */
+        .edit-container { width: 100%; max-width: 100%; }
+        .edit-row { display: flex; gap: 8px; width: 100%; margin-bottom: 8px; }
+        .in-time { width: 70px; flex-shrink: 0; }
+        .in-text { flex-grow: 1; min-width: 0; } /* min-width: 0 是防止 flex 項目超出容器的關鍵 */
+        .edit-input { border: 1px solid #ddd; border-radius: 6px; padding: 8px; font-size: 0.9rem; outline-color: #f43f5e; }
+        
         .pin-active { color: #f43f5e !important; transform: rotate(-45deg); transition: all 0.2s; }
         .pin-inactive { color: #e2e8f0; transition: all 0.2s; }
     </style>
@@ -29,7 +37,7 @@
             </div>
             <nav class="flex-1 overflow-y-auto py-4">
                 <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition text-center">
-                    <i class="fas fa-home w-8"></i><span class="hidden md:inline ml-2 text-sm">行程總覽</span>
+                    <i class="fas fa-home w-8"></i><span class="hidden md:inline ml-2 text-sm text-left">行程總覽</span>
                 </button>
                 <div id="dayLinks"></div>
             </nav>
@@ -56,8 +64,7 @@
                             <i class="fas fa-thumbtack text-red-500"></i>
                             精選釘選行程
                         </h3>
-                        <div id="pinnedItemsContainer" class="grid gap-3">
-                            </div>
+                        <div id="pinnedItemsContainer" class="grid gap-3"></div>
                     </div>
                 </div>
             </div>
@@ -65,14 +72,13 @@
     </div>
 
     <script>
-        // 預設將所有 pinned 設為 false
         const originalData = [
             { date: "12/25", title: "啟程：桃園機場", items: [ {time: "20:30", text: "到桃園機場一航", pinned: false}, {time: "23:10", text: "飛機起飛", pinned: false} ] },
             { date: "12/26", title: "抵達 & 史特拉斯堡", items: [ {time: "07:30", text: "抵達法蘭克福", pinned: false}, {time: "09:51", text: "德鐵 ICE [已預訂]", pinned: false}, {time: "19:00", text: "租車 Alamo [已預訂]", pinned: false} ] },
             { date: "12/27", title: "酒莊巡禮 & 科馬", items: [ {time: "14:00", text: "酒莊預約買酒", pinned: false}, {time: "15:00", text: "科馬 Check-in", pinned: false} ] },
-            { date: "12/28", title: "前進巴黎", items: [ {time: "12:50", text: "搭 TGV 往巴黎", pinned: false}, {time: "15:50", text: "到馨樂庭飯店", pinned: false} ] },
-            { date: "12/29", title: "羅浮宮 & 瘋馬秀", items: [ {time: "14:15", text: "羅浮宮參觀 [已買票]", pinned: false}, {time: "20:30", text: "瘋馬秀 [已買票]", pinned: false} ] },
-            { date: "12/30", title: "巴黎文化之旅", items: [ {time: "10:00", text: "聖母院登頂", pinned: false}, {time: "14:30", text: "巴黎歌劇院 [已買票]", pinned: false} ] },
+            { date: "12/28", title: "前進巴黎", items: [ {time: "12:50", text: "搭 TGV 往巴黎", pinned: false}, {time: "15:50", text: "到飯店", pinned: false} ] },
+            { date: "12/29", title: "羅浮宮 & 瘋馬秀", items: [ {time: "14:15", text: "羅浮宮 [已買票]", pinned: false}, {time: "20:30", text: "瘋馬秀 [已買票]", pinned: false} ] },
+            { date: "12/30", title: "巴黎文化之旅", items: [ {time: "10:00", text: "聖母院登頂", pinned: false}, {time: "14:30", text: "巴黎歌劇院", pinned: false} ] },
             { date: "12/31", title: "凡爾賽宮 & 跨年", items: [ {time: "09:15", text: "凡爾賽宮 [已預訂]", pinned: false}, {time: "20:00", text: "Pedra Alta 晚餐", pinned: false} ] },
             { date: "1/1", title: "前往布魯日", items: [ {time: "10:51", text: "巴黎北站 TGV", pinned: false}, {time: "19:00", text: "Seafoodbar Belge", pinned: false} ] },
             { date: "1/2", title: "布魯日 & 根特", items: [ {time: "16:58", text: "火車往根特", pinned: false}, {time: "20:30", text: "Mémé Gusta 晚餐", pinned: false} ] },
@@ -80,10 +86,10 @@
             { date: "1/4", title: "返程", items: [ {time: "10:35", text: "法蘭克福起飛", pinned: false} ] }
         ];
 
-        let tripData = JSON.parse(localStorage.getItem('trip_v6')) || originalData;
+        let tripData = JSON.parse(localStorage.getItem('trip_v7')) || originalData;
 
         function save() {
-            localStorage.setItem('trip_v6', JSON.stringify(tripData));
+            localStorage.setItem('trip_v7', JSON.stringify(tripData));
             updatePinnedList();
             document.getElementById('saveStatus').innerText = '儲存於 ' + new Date().toLocaleTimeString();
         }
@@ -111,35 +117,35 @@
                 day.items.forEach((item, iIdx) => {
                     itemsHtml += `
                         <div class="flex flex-col p-3 bg-white border-b group">
-                            <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between">
-                                <div class="flex gap-4 items-center">
+                            <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between gap-2 overflow-hidden">
+                                <div class="flex gap-4 items-center overflow-hidden">
                                     <span class="font-mono font-bold text-slate-400 w-12 text-sm shrink-0">${item.time}</span>
-                                    <span class="text-slate-700 text-sm md:text-base">${item.text}</span>
+                                    <span class="text-slate-700 text-sm md:text-base truncate">${item.text}</span>
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <button onclick="togglePin(${dIdx}, ${iIdx})" id="pin-icon-${dIdx}-${iIdx}" class="p-1 ${item.pinned ? 'pin-active' : 'pin-inactive'} hover:scale-125 transition">
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <button onclick="togglePin(${dIdx}, ${iIdx})" id="pin-icon-${dIdx}-${iIdx}" class="p-2 ${item.pinned ? 'pin-active' : 'pin-inactive'} transition">
                                         <i class="fas fa-thumbtack"></i>
                                     </button>
-                                    <button onclick="startEdit(${dIdx}, ${iIdx})" class="text-slate-200 hover:text-slate-400"><i class="fas fa-pen text-xs"></i></button>
+                                    <button onclick="startEdit(${dIdx}, ${iIdx})" class="p-2 text-slate-200 hover:text-slate-400"><i class="fas fa-pen text-xs"></i></button>
                                 </div>
                             </div>
-                            <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-2 bg-slate-50 p-3 rounded mt-2 border border-red-100">
-                                <div class="flex gap-2">
-                                    <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input w-20 font-mono" value="${item.time}">
-                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input flex-1" value="${item.text}">
+                            <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-3 bg-slate-50 p-4 rounded-xl mt-2 border border-red-100 edit-container">
+                                <div class="edit-row">
+                                    <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input in-time font-mono" value="${item.time}" placeholder="時間">
+                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input in-text" value="${item.text}" placeholder="要做什麼？">
                                 </div>
-                                <div class="flex justify-between">
-                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs">刪除</button>
-                                    <div class="flex gap-2">
-                                        <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs px-2">取消</button>
-                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-800 text-white text-xs px-3 py-1 rounded">儲存</button>
+                                <div class="flex justify-between items-center">
+                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs font-bold px-2 py-1"><i class="fas fa-trash-alt mr-1"></i> 刪除</button>
+                                    <div class="flex gap-3">
+                                        <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs font-bold px-3 py-2 uppercase">取消</button>
+                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm">儲存更新</button>
                                     </div>
                                 </div>
                             </div>
                         </div>`;
                 });
                 
-                card.innerHTML = `<div class="mb-4"><span class="text-red-500 font-bold text-xs uppercase tracking-widest">${day.date}</span><h2 class="text-xl font-black text-slate-800">${day.title}</h2></div>${itemsHtml}<button onclick="addItem(${dIdx})" class="w-full mt-4 py-3 border-2 border-dashed border-slate-100 rounded-xl text-slate-300 hover:text-red-500 transition text-sm">+ 新增項目</button></div>`;
+                card.innerHTML = `<div class="mb-4 px-1"><span class="text-red-500 font-bold text-xs uppercase tracking-widest">${day.date}</span><h2 class="text-xl font-black text-slate-800">${day.title}</h2></div>${itemsHtml}<button onclick="addItem(${dIdx})" class="w-full mt-4 py-4 border-2 border-dashed border-slate-100 rounded-2xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition text-sm font-bold">+ 新增行程細項</button></div>`;
                 contentArea.appendChild(card);
             });
             updatePinnedList();
@@ -148,7 +154,7 @@
         function togglePin(dIdx, iIdx) {
             tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned;
             const btn = document.getElementById(`pin-icon-${dIdx}-${iIdx}`);
-            btn.className = `p-1 ${tripData[dIdx].items[iIdx].pinned ? 'pin-active' : 'pin-inactive'} hover:scale-125 transition`;
+            btn.className = `p-2 ${tripData[dIdx].items[iIdx].pinned ? 'pin-active' : 'pin-inactive'} transition`;
             save();
         }
 
@@ -189,7 +195,7 @@
             startEdit(dIdx, tripData[dIdx].items.length - 1);
         }
         function deleteItem(dIdx, iIdx) {
-            if(confirm('確定刪除？')) { tripData[dIdx].items.splice(iIdx, 1); save(); init(); showDay(`day-${dIdx}`); }
+            if(confirm('確定刪除此項行程嗎？')) { tripData[dIdx].items.splice(iIdx, 1); save(); init(); showDay(`day-${dIdx}`); }
         }
         function showDay(id) {
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
@@ -200,7 +206,7 @@
         }
         function resetToOriginal() {
             if(confirm('重置將清除所有修改內容且取消所有釘選，確定嗎？')) {
-                localStorage.removeItem('trip_v6');
+                localStorage.removeItem('trip_v7');
                 location.reload();
             }
         }
