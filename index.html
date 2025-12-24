@@ -11,10 +11,12 @@
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; }
         .sidebar { transition: all 0.3s; }
         .day-card { display: none; }
-        .day-card.active { display: block; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .day-card.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .booked-tag { background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
         .edit-input { border: 1px solid #ddd; border-radius: 4px; padding: 6px; font-size: 0.9rem; outline-color: #f43f5e; }
+        .pin-active { color: #f43f5e !important; transform: rotate(-45deg); transition: all 0.2s; }
+        .pin-inactive { color: #e2e8f0; transition: all 0.2s; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -26,8 +28,8 @@
                 <span class="hidden md:inline block mt-2 font-bold tracking-widest text-sm uppercase">France 2025</span>
             </div>
             <nav class="flex-1 overflow-y-auto py-4">
-                <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition">
-                    <i class="fas fa-home w-8"></i><span class="hidden md:inline">總覽</span>
+                <button onclick="showDay('overview')" class="w-full flex items-center p-4 hover:bg-slate-800 transition text-center">
+                    <i class="fas fa-home w-8"></i><span class="hidden md:inline ml-2 text-sm">行程總覽</span>
                 </button>
                 <div id="dayLinks"></div>
             </nav>
@@ -36,175 +38,175 @@
 
         <main class="flex-1 overflow-y-auto relative bg-white">
             <header class="sticky top-0 bg-white/80 backdrop-blur-md z-10 px-6 py-4 border-b flex justify-between items-center">
-                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">載入中...</h2>
-                <button onclick="openImportPopup()" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200">
-                    <i class="fas fa-file-import text-slate-600"></i>
-                </button>
+                <h2 id="currentDayTitle" class="text-lg font-bold text-slate-800">行程總覽</h2>
+                <div class="flex gap-2 text-[10px] text-slate-400">
+                    <span id="saveStatus">已儲存</span>
+                </div>
             </header>
 
             <div id="contentArea" class="p-4 md:p-8 max-w-4xl mx-auto">
                 <div id="overview" class="day-card active">
                     <div class="bg-gradient-to-r from-red-500 to-rose-600 rounded-2xl p-6 text-white mb-8 shadow-lg">
                         <h1 class="text-2xl font-bold mb-2">跟阿猷二訪法國之酒莊之旅</h1>
-                        <p class="opacity-90">2025.12.25 ~ 2026.1.5</p>
+                        <p class="opacity-90 font-mono text-sm">2025.12.25 ~ 2026.1.5</p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="memoSection">
-                        </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="fas fa-thumbtack text-red-500"></i>
+                            精選釘選行程
+                        </h3>
+                        <div id="pinnedItemsContainer" class="grid gap-3">
+                            </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <div id="importPopup" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-            <h3 class="text-xl font-bold mb-4 text-slate-800">智能導入</h3>
-            <textarea id="importText" class="w-full h-40 p-4 border rounded-xl text-sm mb-4" placeholder="貼上新的行程內容..."></textarea>
-            <div class="flex justify-end gap-2">
-                <button onclick="closeImportPopup()" class="px-4 py-2 text-slate-500">取消</button>
-                <button onclick="alert('請手動使用編輯按鈕修改行程！')" class="px-6 py-2 bg-slate-900 text-white rounded-lg">更新</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // 初始結構化資料
-        const originalTripData = [
-            { date: "12/25", title: "啟程：向桃園機場出發", items: [ {time: "20:30", text: "到桃園機場第一航廈"}, {time: "23:10", text: "桃園機場第一航廈起飛"} ] },
-            { date: "12/26", title: "抵達 & 史特拉斯堡", items: [ {time: "07:30", text: "抵達法蘭克福機場"}, {time: "09:51", text: "搭火車(德鐵ICE) [已預訂]"}, {time: "12:15", text: "到史特拉斯堡 (行李寄放已預訂)"}, {time: "19:00", text: "租車 [已預訂] Alamo"} ] },
-            { date: "12/27", title: "酒莊巡禮 & 科馬", items: [ {time: "10:15", text: "抵達Eguisheim小鎮拍照"}, {time: "14:00", text: "Sylvie Fahrer & Son [已預約] 買酒"}, {time: "15:00", text: "前往科馬Check in"} ] },
-            { date: "12/28", title: "前進巴黎", items: [ {time: "10:00", text: "史特拉斯堡還車"}, {time: "12:50", text: "搭TGV去巴黎 [已預訂]"}, {time: "15:50", text: "到飯店 (馨樂庭飯店)"} ] },
-            { date: "12/29", title: "羅浮宮 & 瘋馬秀", items: [ {time: "14:15", text: "羅浮宮參觀 [已買票]"}, {time: "20:30", text: "瘋馬秀開演 [已買票]"} ] },
-            { date: "12/30", title: "巴黎文化之旅", items: [ {time: "10:00", text: "聖母院登頂 (需預訂)"}, {time: "14:30", text: "巴黎歌劇院 [已買票]"}, {time: "20:00", text: "晚餐: LOCO (訂位Alex Hong)"} ] },
-            { date: "12/31", title: "凡爾賽宮 & 跨年", items: [ {time: "09:15", text: "凡爾賽宮入場"}, {time: "13:15", text: "午餐: Au Bon Accueil (訂位LiLing Chen)"}, {time: "20:00", text: "晚餐: Pedra Alta (龍蝦淡菜)"} ] },
-            { date: "1/1", title: "前往比利時布魯日", items: [ {time: "10:51", text: "巴黎北站往布魯日 [已預訂]"}, {time: "16:20", text: "玫瑰碼頭夕陽"} ] },
-            { date: "1/2", title: "漫步布魯日，宿根特", items: [ {time: "16:58", text: "前往根特"}, {time: "20:30", text: "晚餐 Mémé Gusta"} ] },
-            { date: "1/3", title: "根特古城 & 啟程返航", items: [ {time: "12:50", text: "伯爵城堡"}, {time: "18:34", text: "往法蘭克福機場 [已預訂]"} ] },
-            { date: "1/4", title: "法蘭克福返台", items: [ {time: "10:35", text: "法蘭克福機場起飛"} ] }
+        // 預設將所有 pinned 設為 false
+        const originalData = [
+            { date: "12/25", title: "啟程：桃園機場", items: [ {time: "20:30", text: "到桃園機場一航", pinned: false}, {time: "23:10", text: "飛機起飛", pinned: false} ] },
+            { date: "12/26", title: "抵達 & 史特拉斯堡", items: [ {time: "07:30", text: "抵達法蘭克福", pinned: false}, {time: "09:51", text: "德鐵 ICE [已預訂]", pinned: false}, {time: "19:00", text: "租車 Alamo [已預訂]", pinned: false} ] },
+            { date: "12/27", title: "酒莊巡禮 & 科馬", items: [ {time: "14:00", text: "酒莊預約買酒", pinned: false}, {time: "15:00", text: "科馬 Check-in", pinned: false} ] },
+            { date: "12/28", title: "前進巴黎", items: [ {time: "12:50", text: "搭 TGV 往巴黎", pinned: false}, {time: "15:50", text: "到馨樂庭飯店", pinned: false} ] },
+            { date: "12/29", title: "羅浮宮 & 瘋馬秀", items: [ {time: "14:15", text: "羅浮宮參觀 [已買票]", pinned: false}, {time: "20:30", text: "瘋馬秀 [已買票]", pinned: false} ] },
+            { date: "12/30", title: "巴黎文化之旅", items: [ {time: "10:00", text: "聖母院登頂", pinned: false}, {time: "14:30", text: "巴黎歌劇院 [已買票]", pinned: false} ] },
+            { date: "12/31", title: "凡爾賽宮 & 跨年", items: [ {time: "09:15", text: "凡爾賽宮 [已預訂]", pinned: false}, {time: "20:00", text: "Pedra Alta 晚餐", pinned: false} ] },
+            { date: "1/1", title: "前往布魯日", items: [ {time: "10:51", text: "巴黎北站 TGV", pinned: false}, {time: "19:00", text: "Seafoodbar Belge", pinned: false} ] },
+            { date: "1/2", title: "布魯日 & 根特", items: [ {time: "16:58", text: "火車往根特", pinned: false}, {time: "20:30", text: "Mémé Gusta 晚餐", pinned: false} ] },
+            { date: "1/3", title: "啟程返航", items: [ {time: "18:34", text: "往法蘭克福火車", pinned: false} ] },
+            { date: "1/4", title: "返程", items: [ {time: "10:35", text: "法蘭克福起飛", pinned: false} ] }
         ];
 
-        let tripData = JSON.parse(localStorage.getItem('france_trip_v3')) || originalTripData;
+        let tripData = JSON.parse(localStorage.getItem('trip_v6')) || originalData;
 
-        function save() { localStorage.setItem('france_trip_v3', JSON.stringify(tripData)); }
+        function save() {
+            localStorage.setItem('trip_v6', JSON.stringify(tripData));
+            updatePinnedList();
+            document.getElementById('saveStatus').innerText = '儲存於 ' + new Date().toLocaleTimeString();
+        }
 
         function init() {
             const linkContainer = document.getElementById('dayLinks');
             const contentArea = document.getElementById('contentArea');
             const overview = document.getElementById('overview');
-            
             contentArea.innerHTML = '';
             contentArea.appendChild(overview);
             linkContainer.innerHTML = '';
 
             tripData.forEach((day, dIdx) => {
-                // Link
                 const link = document.createElement('button');
                 link.onclick = () => showDay(`day-${dIdx}`);
                 link.className = "w-full p-4 hover:bg-slate-800 transition flex flex-col items-center border-l-4 border-transparent hover:border-red-400";
-                link.innerHTML = `<span class="text-[10px] opacity-50">${day.date}</span><span class="text-xs font-bold font-mono text-white">D${dIdx+1}</span>`;
+                link.innerHTML = `<span class="text-[10px] opacity-50 font-mono">${day.date}</span><span class="text-xs font-bold text-white">D${dIdx+1}</span>`;
                 linkContainer.appendChild(link);
 
-                // Card
                 const card = document.createElement('div');
                 card.id = `day-${dIdx}`;
                 card.className = "day-card space-y-4";
                 
                 let itemsHtml = `<div class="space-y-3">`;
                 day.items.forEach((item, iIdx) => {
-                    const isBooked = item.text.includes('預訂') || item.text.includes('預約') || item.text.includes('買票');
                     itemsHtml += `
-                        <div class="flex items-start gap-3 p-3 bg-white border-b group">
-                            <div class="flex-1">
-                                <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between">
-                                    <div class="flex gap-4 items-baseline">
-                                        <span class="font-mono font-bold text-slate-400 w-12 shrink-0">${item.time || '--:--'}</span>
-                                        <span class="${isBooked ? 'text-blue-600 font-medium' : 'text-slate-600'} text-sm md:text-base">${item.text}</span>
-                                        ${isBooked ? '<span class="booked-tag shrink-0">已確認</span>' : ''}
-                                    </div>
-                                    <button onclick="editItem(${dIdx}, ${iIdx})" class="text-slate-300 hover:text-red-500"><i class="fas fa-pen text-xs"></i></button>
+                        <div class="flex flex-col p-3 bg-white border-b group">
+                            <div id="disp-${dIdx}-${iIdx}" class="flex items-center justify-between">
+                                <div class="flex gap-4 items-center">
+                                    <span class="font-mono font-bold text-slate-400 w-12 text-sm shrink-0">${item.time}</span>
+                                    <span class="text-slate-700 text-sm md:text-base">${item.text}</span>
                                 </div>
-                                <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-2 bg-slate-50 p-3 rounded-lg border border-red-100">
+                                <div class="flex items-center gap-3">
+                                    <button onclick="togglePin(${dIdx}, ${iIdx})" id="pin-icon-${dIdx}-${iIdx}" class="p-1 ${item.pinned ? 'pin-active' : 'pin-inactive'} hover:scale-125 transition">
+                                        <i class="fas fa-thumbtack"></i>
+                                    </button>
+                                    <button onclick="startEdit(${dIdx}, ${iIdx})" class="text-slate-200 hover:text-slate-400"><i class="fas fa-pen text-xs"></i></button>
+                                </div>
+                            </div>
+                            <div id="edit-${dIdx}-${iIdx}" class="hidden flex flex-col gap-2 bg-slate-50 p-3 rounded mt-2 border border-red-100">
+                                <div class="flex gap-2">
+                                    <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input w-20 font-mono" value="${item.time}">
+                                    <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input flex-1" value="${item.text}">
+                                </div>
+                                <div class="flex justify-between">
+                                    <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs">刪除</button>
                                     <div class="flex gap-2">
-                                        <input type="text" id="in-time-${dIdx}-${iIdx}" class="edit-input w-20 font-mono" value="${item.time}">
-                                        <input type="text" id="in-text-${dIdx}-${iIdx}" class="edit-input flex-1" value="${item.text}">
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <button onclick="deleteItem(${dIdx}, ${iIdx})" class="text-red-500 text-xs"><i class="fas fa-trash"></i> 刪除</button>
-                                        <div class="flex gap-2">
-                                            <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs px-2">取消</button>
-                                            <button onclick="confirmEdit(${dIdx}, ${iIdx})" class="bg-red-500 text-white text-xs px-3 py-1 rounded">儲存</button>
-                                        </div>
+                                        <button onclick="cancelEdit(${dIdx}, ${iIdx})" class="text-slate-400 text-xs px-2">取消</button>
+                                        <button onclick="saveEdit(${dIdx}, ${iIdx})" class="bg-slate-800 text-white text-xs px-3 py-1 rounded">儲存</button>
                                     </div>
                                 </div>
                             </div>
                         </div>`;
                 });
                 
-                itemsHtml += `
-                    <button onclick="addItem(${dIdx})" class="w-full mt-4 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 hover:text-red-500 hover:border-red-200 transition text-sm">
-                        <i class="fas fa-plus mr-2"></i>新增行程項目
-                    </button>
-                </div>`;
-                
-                card.innerHTML = `
-                    <div class="mb-4">
-                        <span class="text-red-500 font-bold text-sm tracking-widest">${day.date}</span>
-                        <h2 class="text-2xl font-black text-slate-800">${day.title}</h2>
-                    </div>
-                    ${itemsHtml}`;
+                card.innerHTML = `<div class="mb-4"><span class="text-red-500 font-bold text-xs uppercase tracking-widest">${day.date}</span><h2 class="text-xl font-black text-slate-800">${day.title}</h2></div>${itemsHtml}<button onclick="addItem(${dIdx})" class="w-full mt-4 py-3 border-2 border-dashed border-slate-100 rounded-xl text-slate-300 hover:text-red-500 transition text-sm">+ 新增項目</button></div>`;
                 contentArea.appendChild(card);
             });
-            showDay('overview');
+            updatePinnedList();
         }
 
-        // 行動控制
-        function editItem(dIdx, iIdx) {
+        function togglePin(dIdx, iIdx) {
+            tripData[dIdx].items[iIdx].pinned = !tripData[dIdx].items[iIdx].pinned;
+            const btn = document.getElementById(`pin-icon-${dIdx}-${iIdx}`);
+            btn.className = `p-1 ${tripData[dIdx].items[iIdx].pinned ? 'pin-active' : 'pin-inactive'} hover:scale-125 transition`;
+            save();
+        }
+
+        function updatePinnedList() {
+            const container = document.getElementById('pinnedItemsContainer');
+            container.innerHTML = '';
+            let count = 0;
+            tripData.forEach((day, dIdx) => {
+                day.items.forEach((item, iIdx) => {
+                    if (item.pinned) {
+                        count++;
+                        const div = document.createElement('div');
+                        div.className = "flex items-center gap-3 p-3 bg-white border rounded-xl shadow-sm hover:border-red-200 transition";
+                        div.innerHTML = `<div class="text-[9px] bg-red-50 text-red-500 font-bold px-2 py-1 rounded shrink-0">${day.date}</div><div class="font-mono text-xs text-slate-400 w-10 shrink-0">${item.time}</div><div class="text-sm text-slate-600 flex-1 truncate font-medium">${item.text}</div><button onclick="showDay('day-${dIdx}')" class="text-slate-300 hover:text-red-500 px-2"><i class="fas fa-chevron-right"></i></button>`;
+                        container.appendChild(div);
+                    }
+                });
+            });
+            if(count === 0) container.innerHTML = `<div class="text-center py-12 text-slate-300 text-xs border-2 border-dashed rounded-2xl">目前首頁是空的，快去行程頁面釘選重要時刻吧！</div>`;
+        }
+
+        function startEdit(dIdx, iIdx) {
             document.getElementById(`disp-${dIdx}-${iIdx}`).classList.add('hidden');
             document.getElementById(`edit-${dIdx}-${iIdx}`).classList.remove('hidden');
         }
-
         function cancelEdit(dIdx, iIdx) {
             document.getElementById(`disp-${dIdx}-${iIdx}`).classList.remove('hidden');
             document.getElementById(`edit-${dIdx}-${iIdx}`).classList.add('hidden');
         }
-
-        function confirmEdit(dIdx, iIdx) {
+        function saveEdit(dIdx, iIdx) {
             tripData[dIdx].items[iIdx].time = document.getElementById(`in-time-${dIdx}-${iIdx}`).value;
             tripData[dIdx].items[iIdx].text = document.getElementById(`in-text-${dIdx}-${iIdx}`).value;
             save(); init(); showDay(`day-${dIdx}`);
         }
-
         function addItem(dIdx) {
-            tripData[dIdx].items.push({time: "12:00", text: "新行程內容"});
+            tripData[dIdx].items.push({time: "12:00", text: "新行程", pinned: false});
             save(); init(); showDay(`day-${dIdx}`);
-            const lastIdx = tripData[dIdx].items.length - 1;
-            editItem(dIdx, lastIdx); // 自動開啟最後一項的編輯模式
+            startEdit(dIdx, tripData[dIdx].items.length - 1);
         }
-
         function deleteItem(dIdx, iIdx) {
-            if(confirm('刪除這條行程？')) {
-                tripData[dIdx].items.splice(iIdx, 1);
-                save(); init(); showDay(`day-${dIdx}`);
-            }
+            if(confirm('確定刪除？')) { tripData[dIdx].items.splice(iIdx, 1); save(); init(); showDay(`day-${dIdx}`); }
         }
-
         function showDay(id) {
             document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
             document.getElementById(id).classList.add('active');
-            const dayIdx = id.split('-')[1];
-            document.getElementById('currentDayTitle').innerText = tripData[dayIdx] ? `${tripData[dayIdx].date} 行程` : "行程總覽";
+            const idx = id.split('-')[1];
+            document.getElementById('currentDayTitle').innerText = tripData[idx] ? `${tripData[idx].date} 行程規劃` : "行程總覽";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-
         function resetToOriginal() {
-            if(confirm('恢復原始設定？所有編輯都會消失！')) {
-                localStorage.removeItem('france_trip_v3');
+            if(confirm('重置將清除所有修改內容且取消所有釘選，確定嗎？')) {
+                localStorage.removeItem('trip_v6');
                 location.reload();
             }
         }
 
-        function openImportPopup() { document.getElementById('importPopup').classList.remove('hidden'); }
-        function closeImportPopup() { document.getElementById('importPopup').classList.add('hidden'); }
-
         init();
+        showDay('overview');
     </script>
 </body>
 </html>
